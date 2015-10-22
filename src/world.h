@@ -4,11 +4,11 @@
 class World
 {
 private:
-	unsigned long greenCount;
-	unsigned long redCount;
-	unsigned long totalRespawn;
-	unsigned long areaX;
-	unsigned long areaY;
+	size_t greenCount;
+	size_t redCount;
+	size_t totalRespawn;
+	size_t areaX;
+	size_t areaY;
 
 public:
 
