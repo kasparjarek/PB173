@@ -1,68 +1,134 @@
-#include <iostream>
-#include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
 #include "world.h"
 
 using namespace std;
 
-extern char *optarg;
-extern int optind;
-
-const char *ARGS = "h";
-const struct option LONG_ARGS[] = {
-	{"green-tanks", required_argument, NULL, 'g'},
-	{"red-tanks", required_argument, NULL, 'r'},
-	{"total-respawn", required_argument, NULL, 't'},
-	{"area-size", required_argument, NULL, 'a'},
-	{"help", no_argument, NULL, 'h'},
-	{0, 0, 0, 0}
-};
-
-void usage()
+World::World(int areaY,
+             int areaX,
+             int totalRespawn,
+             int redCount,
+             int greenCount)
+    : areaY(areaY), areaX(areaX), totalRespawn(totalRespawn), currentRespawn(0),
+      redCount(redCount), greenCount(greenCount)
 {
-	cout << "Usage:\n";
-	cout << "\t--green-tanks <N>\n";
-	cout << "\t\tcreates <N> green tanks\n\n";
-	cout << "\t--red-tanks <N>\n";
-	cout << "\t\tcreates <N> red tanks\n\n";
-	cout << "\t--total-respawn <N>\n";
-	cout << "\t\ta total of <N> tanks will be respawned\n\n";
-	cout << "\t--area-size <N> <M>\n";
-	cout << "\t\tgame area will have size <N> x <M>\n\n";
-	cout << "\t-h, --help\n";
-	cout << "\t\tshows this help\n\n";
+    srand((unsigned int) time(NULL));
+
+    if (areaY * areaX < redCount + greenCount) {
+        throw runtime_error("invalid parameters");
+    }
 }
 
-int main(int argc, char *argv[])
+int World::start()
 {
-	char opt = 0;
 
-	//World world;
-	/*world.areaX = 0;
-	world.areaY = 0;
-	world.greenCount = 0;*/
+    // TODO: marty - create game board
 
-	while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL) ) != -1) {
-		switch (opt) {
-		case 'h':
-			usage();
-			return 0;
-		case 'g':
-			//world.greenCount = atol(optarg);
-			break;
-		case 'r':
-			break;
-		case 't':
-			break;
-		case 'a':
-			/*world.areaX = atol(optarg);
-			world.areaY = atol(argv[optind++]);*/
-			break;
-		}
-	}
+    if (createTanks(Team::GREEN, greenCount) != 0) {
+        return -1;
+    }
 
-	//cout << world.areaX << " " << world.areaY << " " << world.greenCount << endl;
+    if (createTanks(Team::RED, redCount) != 0) {
+        return -1;
+    }
 
-	return 0;
+
+    int status = 0;
+    TankBean tank;
+    pid_t tankPid = 0;
+    while (totalRespawn > currentRespawn) {
+        tankPid = wait(&status);
+        if (respawnTank(tankPid) == nullptr) {
+            freeTanks();
+            return -1;
+        }
+        currentRespawn++;
+    }
+
+    freeTanks();
+    return 0;
+}
+
+void World::freeTanks()
+{
+    for (TankBean *i : tanksByPid) {
+        delete i;
+    }
+
+    tanksByPid.clear();
+    tanksByPosition.clear();
+}
+
+TankBean * World::createTank(Team team)
+{
+    TankBean *newTank = new TankBean();
+    newTank->team = team;
+
+    do {
+        newTank->position = Coordinates(rand() % areaX, rand() % areaY);
+    }
+    while (!tanksByPosition.insert(newTank).second);
+
+
+    pid_t tankPid = fork();
+
+    if (tankPid == -1) {
+        syslog(LOG_ERR, "Creating new tank failed: %s", strerror(errno));
+        tanksByPosition.erase(newTank);
+        delete newTank;
+        return nullptr;
+    }
+    // Child
+    else if (tankPid == 0) {
+        if (execl("tank", "tank", NULL) == -1) {
+            syslog(LOG_ERR, "execl() failed: %s", strerror(errno));
+        }
+        exit(-1);
+    }
+
+    // Parent
+    newTank->pid = tankPid;
+    if (!tanksByPid.insert(newTank).second) {
+        syslog(LOG_WARNING, "Tank with pid %d already exist in tanksByPid set. This tank is replaced.", tankPid);
+
+        // Remove outdated tank from tanksByPid set
+        auto outdatedTank = tanksByPid.insert(newTank).first;
+        delete *outdatedTank;
+        tanksByPid.erase(outdatedTank);
+
+        tanksByPid.insert(newTank);
+    }
+
+    // TODO: marty - add tank
+    return newTank;
+}
+
+int World::createTanks(Team team, int count)
+{
+    for (int i = 0; i < count; ++i) {
+        if (createTank(team) == nullptr) {
+            freeTanks();
+            return -1;
+        }
+    }
+    return 0;
+}
+
+TankBean * World::respawnTank(pid_t tankPid)
+{
+    TankBean requiredTank;
+    requiredTank.pid = tankPid;
+    auto iter = tanksByPid.find(&requiredTank);
+    if (iter == tanksByPid.end()) {
+        syslog(LOG_NOTICE, "tanksByPid set doesn't containt tank with %d pid. Nothing will be respawned.", tankPid);
+        return nullptr;
+    }
+
+    // TODO: marty - remove tank
+
+    // Remove tank from sets
+    tanksByPosition.erase(*iter);
+    Team t = (*iter)->team;
+    delete *iter;
+    tanksByPid.erase(iter);
+
+    return createTank(t);
 }

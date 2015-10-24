@@ -1,18 +1,108 @@
-#ifndef WORLD_H
-#define WORLD_H
+#ifndef INTERNET_OF_TANKS_WORLD_H
+#define INTERNET_OF_TANKS_WORLD_H
+
+#include <sys/types.h>
+#include <set>
+#include <iostream>
+#include <stdlib.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <sys/wait.h>
+#include <syslog.h>
+#include <errno.h>
+
+
+enum Team
+{
+    GREEN, RED
+};
+
+typedef std::pair<int, int> Coordinates;
+
+struct TankBean
+{
+    Coordinates position;
+    Team team;
+    pid_t pid;
+};
+
+struct compareTankBeanByPosition
+{
+    bool operator()(const TankBean *a, const TankBean *b) const
+    {
+        return a->position < b->position;
+    }
+};
+
+struct compareTankBeanByPid
+{
+    bool operator()(const TankBean *a, const TankBean *b) const
+    {
+        return a->pid < b->pid;
+    }
+};
 
 class World
 {
-private:
-	size_t greenCount;
-	size_t redCount;
-	size_t totalRespawn;
-	size_t areaX;
-	size_t areaY;
-
 public:
+    World(int areaY = 10,
+          int areaX = 10,
+          int totalRespawn = 5,
+          int redCount = 2,
+          int greenCount = 1);
 
+    virtual ~World()
+    {
+        freeTanks();
+    }
 
+    /**
+     * Start game. Game board is displayed and tank processes are created.
+     * Wait for terminating tank processes and respawning new, until totalRespawn
+     * is reached.
+     * @return -1 when occurs some error, 0 otherwise
+     */
+    int start();
+
+private:
+    int greenCount;
+    int redCount;
+    int totalRespawn;
+    int currentRespawn;
+    int areaX;
+    int areaY;
+
+    std::set<TankBean *, compareTankBeanByPosition> tanksByPosition;
+
+    std::set<TankBean *, compareTankBeanByPid> tanksByPid;
+
+    /**
+     * Create tank - generate random position for tank, create child process
+     * and add new TankBean into sets maintaining tanks.
+     * @return pointer to created Tank or nullptr if creating failed
+     */
+    TankBean *createTank(Team team);
+
+    /**
+     * Create several tanks using createTank method. If invoking one of this method fails
+     * return -1 and clear all tanks.
+     * @return -1 if fails creating one of tanks, 0 otherwise
+     */
+    int createTanks(Team team, int count);
+
+    /**
+     * Remove tank with given pid from memory and from the sets maintaining tanks.
+     * Create new tank replacing the old one (belonging to the same team).
+     * @return Nullptr if creating new tank failed or tank with given pid wasn't found,
+     * pointer to created Tank otherwise.
+     */
+    TankBean *respawnTank(pid_t pid);
+
+    /**
+     * Empty sets maintaining tanks and free memory occupied by this tanks.
+     */
+    void freeTanks();
 };
 
-#endif /* WORLD_H */
+#endif //INTERNET_OF_TANKS_WORLD_H
+
