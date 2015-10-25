@@ -1,3 +1,5 @@
+#include <iostream>
+#include <getopt.h>
 #include "world.h"
 
 using namespace std;
@@ -35,36 +37,37 @@ void usage()
 int main(int argc, char *argv[])
 {
     char opt = 0;
+    int areaX = -1;
+    int areaY = -1;
+    int greenCount = -1;
+    int redCount = -1;
+    int totalRespawn = -1;
 
-    //World world;
-    /*world.areaX = 0;
-    world.areaY = 0;
-    world.greenCount = 0;*/
-
-    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL) ) != -1) {
+    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL)) != -1) {
         switch (opt) {
-            case 'h':
-                usage();
-                return 0;
-            case 'g':
-                //world.greenCount = atol(optarg);
-                break;
-            case 'r':
-                break;
-            case 't':
-                break;
-            case 'a':
-                /*world.areaX = atol(optarg);
-                world.areaY = atol(argv[optind++]);*/
-                break;
+        case 'h':
+            usage();
+            return 0;
+        case 'g':
+            greenCount = atoi(optarg);
+            break;
+        case 'r':
+            redCount = atoi(optarg);
+            break;
+        case 't':
+            totalRespawn = atoi(optarg);
+            break;
+        case 'a':
+            areaX = atoi(optarg);
+            areaY = atoi(argv[optind++]);
+            break;
+        default:
+            usage();
+            abort();
         }
     }
 
-    //cout << world.areaX << " " << world.areaY << " " << world.greenCount << endl;
-
-
-
-    World world;
+    World world(areaY, areaX, totalRespawn, redCount, greenCount);
     world.start();
 
     return 0;

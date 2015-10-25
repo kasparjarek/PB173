@@ -1,18 +1,25 @@
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <stdexcept>
+#include <sys/wait.h>
+#include <syslog.h>
 #include "world.h"
 
 using namespace std;
 
-World::World(int areaY,
-             int areaX,
+World::World(int areaX,
+             int areaY,
              int totalRespawn,
              int redCount,
              int greenCount)
-    : areaY(areaY), areaX(areaX), totalRespawn(totalRespawn), currentRespawn(0),
+    : areaX(areaX), areaY(areaY), totalRespawn(totalRespawn), currentRespawn(0),
       redCount(redCount), greenCount(greenCount)
 {
     srand((unsigned int) time(NULL));
 
-    if (areaY * areaX < redCount + greenCount) {
+    if (areaX < 0 || areaY < 0 || redCount < 0 || greenCount < 0
+            || totalRespawn < 0 || (areaY * areaX < redCount + greenCount)) {
         throw runtime_error("invalid parameters");
     }
 }
@@ -78,7 +85,8 @@ TankBean * World::createTank(Team team)
     }
     // Child
     else if (tankPid == 0) {
-        if (execl("tank", "tank", NULL) == -1) {
+        /* TODO: change sleep-min and sleep-max */
+        if (execl("tank", "tank", "--sleep-min", "1", "--sleep-max", "3", NULL) == -1) {
             syslog(LOG_ERR, "execl() failed: %s", strerror(errno));
         }
         exit(-1);

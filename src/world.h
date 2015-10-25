@@ -1,15 +1,8 @@
 #ifndef INTERNET_OF_TANKS_WORLD_H
 #define INTERNET_OF_TANKS_WORLD_H
 
-#include <sys/types.h>
 #include <set>
-#include <iostream>
-#include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
-#include <sys/wait.h>
-#include <syslog.h>
-#include <errno.h>
 
 
 enum Team
@@ -45,11 +38,11 @@ struct compareTankBeanByPid
 class World
 {
 public:
-    World(int areaY = 10,
-          int areaX = 10,
-          int totalRespawn = 5,
-          int redCount = 2,
-          int greenCount = 1);
+    World(int areaX,
+          int areaY,
+          int totalRespawn,
+          int redCount,
+          int greenCount);
 
     virtual ~World()
     {
@@ -65,12 +58,12 @@ public:
     int start();
 
 private:
-    int greenCount;
-    int redCount;
-    int totalRespawn;
-    int currentRespawn;
     int areaX;
     int areaY;
+    int totalRespawn;
+    int currentRespawn;
+    int redCount;
+    int greenCount;
 
     std::set<TankBean *, compareTankBeanByPosition> tanksByPosition;
 
