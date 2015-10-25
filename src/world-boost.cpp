@@ -1,3 +1,5 @@
+#include <iostream>
+#include <getopt.h>
 #include "world.h"
 
 using namespace std;
@@ -19,52 +21,53 @@ const struct option LONG_ARGS[] = {
 
 void usage()
 {
-    cout << "Usage:\n";
-    cout << "\t--green-tanks <N>\n";
-    cout << "\t\tcreates <N> green tanks\n\n";
-    cout << "\t--red-tanks <N>\n";
-    cout << "\t\tcreates <N> red tanks\n\n";
-    cout << "\t--total-respawn <N>\n";
-    cout << "\t\ta total of <N> tanks will be respawned\n\n";
-    cout << "\t--area-size <N> <M>\n";
-    cout << "\t\tgame area will have size <N> x <M>\n\n";
-    cout << "\t-h, --help\n";
-    cout << "\t\tshows this help\n\n";
+    cout << "Usage:" << endl;
+    cout << "\t" << "--green-tanks <N>" << endl;
+    cout << "\t\t" << "creates <N> green tanks" << endl << endl;
+    cout << "\t" << "--red-tanks <N>" << endl;
+    cout << "\t\t" << "creates <N> red tanks" << endl << endl;
+    cout << "\t--total-respawn <N>" << endl;
+    cout << "\t\t" << "a total of <N> tanks will be respawned" << endl << endl;
+    cout << "\t" << "--area-size <N> <M>" << endl;
+    cout << "\t\t" << "game area will have size <N> x <M>" << endl << endl;
+    cout << "\t" << "-h, --help" << endl;
+    cout << "\t\t" << "shows this help" << endl << endl;
 }
 
 int main(int argc, char *argv[])
 {
     char opt = 0;
+    int areaX = -1;
+    int areaY = -1;
+    int greenCount = -1;
+    int redCount = -1;
+    int totalRespawn = -1;
 
-    //World world;
-    /*world.areaX = 0;
-    world.areaY = 0;
-    world.greenCount = 0;*/
-
-    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL) ) != -1) {
+    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL)) != -1) {
         switch (opt) {
-            case 'h':
-                usage();
-                return 0;
-            case 'g':
-                //world.greenCount = atol(optarg);
-                break;
-            case 'r':
-                break;
-            case 't':
-                break;
-            case 'a':
-                /*world.areaX = atol(optarg);
-                world.areaY = atol(argv[optind++]);*/
-                break;
+        case 'h':
+            usage();
+            return 0;
+        case 'g':
+            greenCount = atoi(optarg);
+            break;
+        case 'r':
+            redCount = atoi(optarg);
+            break;
+        case 't':
+            totalRespawn = atoi(optarg);
+            break;
+        case 'a':
+            areaX = atoi(optarg);
+            areaY = atoi(argv[optind++]);
+            break;
+        default:
+            usage();
+            abort();
         }
     }
 
-    //cout << world.areaX << " " << world.areaY << " " << world.greenCount << endl;
-
-
-
-    World world;
+    World world(areaX, areaY, totalRespawn, redCount, greenCount);
     world.start();
 
     return 0;
