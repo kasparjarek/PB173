@@ -21,17 +21,17 @@ const struct option LONG_ARGS[] = {
 
 void usage()
 {
-    cout << "Usage:\n";
-    cout << "\t--green-tanks <N>\n";
-    cout << "\t\tcreates <N> green tanks\n\n";
-    cout << "\t--red-tanks <N>\n";
-    cout << "\t\tcreates <N> red tanks\n\n";
-    cout << "\t--total-respawn <N>\n";
-    cout << "\t\ta total of <N> tanks will be respawned\n\n";
-    cout << "\t--area-size <N> <M>\n";
-    cout << "\t\tgame area will have size <N> x <M>\n\n";
-    cout << "\t-h, --help\n";
-    cout << "\t\tshows this help\n\n";
+    cout << "Usage:" << endl;
+    cout << "\t" << "--green-tanks <N>" << endl;
+    cout << "\t\t" << "creates <N> green tanks" << endl << endl;
+    cout << "\t" << "--red-tanks <N>" << endl;
+    cout << "\t\t" << "creates <N> red tanks" << endl << endl;
+    cout << "\t--total-respawn <N>" << endl;
+    cout << "\t\t" << "a total of <N> tanks will be respawned" << endl << endl;
+    cout << "\t" << "--area-size <N> <M>" << endl;
+    cout << "\t\t" << "game area will have size <N> x <M>" << endl << endl;
+    cout << "\t" << "-h, --help" << endl;
+    cout << "\t\t" << "shows this help" << endl << endl;
 }
 
 int main(int argc, char *argv[])
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    World world(areaY, areaX, totalRespawn, redCount, greenCount);
+    World world(areaX, areaY, totalRespawn, redCount, greenCount);
     world.start();
 
     return 0;

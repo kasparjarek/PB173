@@ -19,13 +19,13 @@ const struct option LONG_ARGS[] = {
 
 void usage()
 {
-    cout << "Usage:\n";
-    cout << "\t--sleep-max <N>\n";
-    cout << "\t\tmaximum sleep time in seconds\n\n";
-    cout << "\t--sleep-min <N>\n";
-    cout << "\t\tminimum sleep time in seconds\n\n";
-    cout << "\t-h, --help\n";
-    cout << "\t\tshows this help\n\n";
+    cout << "Usage:" << endl;
+    cout << "\t" << "--sleep-max <N>" << endl;
+    cout << "\t\t" << "maximum sleep time in seconds" << endl << endl;
+    cout << "\t" << "--sleep-min <N>" << endl;
+    cout << "\t\t" << "minimum sleep time in seconds" << endl << endl;
+    cout << "\t" << "-h, --help" << endl;
+    cout << "\t\t" << "shows this help" << endl << endl;
 }
 
 int main(int argc, char *argv[])

@@ -11,8 +11,8 @@ const struct option LONG_ARGS[] = {
 
 void usage()
 {
-    cout << "\t-h, --help\n";
-    cout << "\t\tshows this help\n\n";
+    cout << "\t" << "-h, --help" << endl;
+    cout << "\t\t" << "shows this help" << endl << endl;
 }
 
 int main(int argc, char *argv[])
