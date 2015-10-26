@@ -4,7 +4,7 @@
 
 #include "gameboard.h"
 
-Gameboard::Gameboard(int x, int y) : x(x), y(y) {
+Gameboard::Gameboard(int x, int y) : x(x), y(y), redKilled(0), greenKilled(0){
     if(x < 0 || y < 0){
         //cause panic
     }
@@ -57,6 +57,18 @@ int Gameboard::insertTank(TankBean * tank) {
 int Gameboard::deleteTank(TankBean * tank) {
     move(tank->position.first+1, tank->position.second+1);
     addch(' ');
+    if(tank->team == RED){
+        redKilled++;
+        char killed [8];
+        sprintf(killed, "%d", redKilled);
+        mvaddstr(y+5, x, killed);
+    }
+    else{
+        greenKilled++;
+        char killed [8];
+        sprintf(killed, "%d", greenKilled);
+        mvaddstr(y+4, x, killed);
+    }
     move(0,0);
     refresh();
     return 0;
