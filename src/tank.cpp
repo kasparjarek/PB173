@@ -61,11 +61,11 @@ int main(int argc, char *argv[])
     size_t usec = ((rand() % ((sleepMax - sleepMin) * 1000)) + sleepMin * 1000) * 1000;
 
     syslog(LOG_INFO, "Tank with pid %d was created\n", getpid());
-    cout << "tank " << getpid() << " created" << endl;
+//    cout << "tank " << getpid() << " created" << endl;
 
     usleep(usec);
     /* Just some demo, showing problem with rand() */
-    cout << "tank " << getpid() << " destroyed, lasted " << usec / 1000000.0 << " sec" << endl;
+//    cout << "tank " << getpid() << " destroyed, lasted " << usec / 1000000.0 << " sec" << endl;
 
     return 0;
 }

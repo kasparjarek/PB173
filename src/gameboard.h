@@ -4,7 +4,8 @@
 #include <unistd.h>
 #include <ncurses.h>
 #include <stdlib.h>
-#include "world.h"
+#include <utility>
+#include "tankbean.h"
 
 
 class Gameboard

@@ -3,21 +3,8 @@
 
 #include <set>
 #include <unistd.h>
-
-
-enum Team
-{
-    GREEN, RED
-};
-
-typedef std::pair<int, int> Coordinates;
-
-struct TankBean
-{
-    Coordinates position;
-    Team team;
-    pid_t pid;
-};
+#include "tankbean.h"
+#include "gameboard.h"
 
 struct compareTankBeanByPosition
 {
@@ -64,6 +51,7 @@ private:
     int currentRespawn;
     int redCount;
     int greenCount;
+    Gameboard gameboard;
 
     std::set<TankBean *, compareTankBeanByPosition> tanksByPosition;
 

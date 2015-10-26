@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <sys/wait.h>
 #include <syslog.h>
+#include <sys/errno.h>
 #include "world.h"
 
 using namespace std;
@@ -27,7 +28,7 @@ World::World(int areaX,
 int World::start()
 {
 
-    // TODO: marty - create game board
+    gameboard.printframe(areaX, areaY);
 
     if (createTanks(Team::GREEN, greenCount) != 0) {
         return -1;
@@ -105,7 +106,7 @@ TankBean * World::createTank(Team team)
         tanksByPid.insert(newTank);
     }
 
-    // TODO: marty - add tank
+    gameboard.insertTank(newTank);
     return newTank;
 }
 
@@ -130,7 +131,7 @@ TankBean * World::respawnTank(pid_t tankPid)
         return nullptr;
     }
 
-    // TODO: marty - remove tank
+    gameboard.deleteTank(*iter);
 
     // Remove tank from sets
     tanksByPosition.erase(*iter);

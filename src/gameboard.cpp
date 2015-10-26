@@ -16,7 +16,7 @@ Gameboard::Gameboard(int x, int y) : x(x), y(y) {
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_RED, COLOR_BLACK);
     attron(COLOR_PAIR(1));
-    printframe(x, y);
+//    printframe(x, y);
     refresh();
 
 }
