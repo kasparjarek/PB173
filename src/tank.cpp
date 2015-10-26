@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
         throw runtime_error("invalid parameters");
     }
 
-    srand(time(0));
+    srand(getpid());
 
     /* Random sleep time in microseconds with precision to miliseconds */
     size_t usec = ((rand() % ((sleepMax - sleepMin) * 1000)) + sleepMin * 1000) * 1000;
