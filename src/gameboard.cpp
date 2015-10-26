@@ -16,7 +16,6 @@ Gameboard::Gameboard(int x, int y) : x(x), y(y), redKilled(0), greenKilled(0){
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_RED, COLOR_BLACK);
     attron(COLOR_PAIR(1));
-//    printframe(x, y);
     refresh();
 
 }
@@ -61,43 +60,18 @@ int Gameboard::deleteTank(TankBean * tank) {
         redKilled++;
         char killed [8];
         sprintf(killed, "%d", redKilled);
-        mvaddstr(y+5, x, killed);
+        attron(COLOR_PAIR(3));
+        mvaddstr(y+5, 0, killed);
     }
     else{
         greenKilled++;
         char killed [8];
         sprintf(killed, "%d", greenKilled);
-        mvaddstr(y+4, x, killed);
+        attron(COLOR_PAIR(2));
+        mvaddstr(y+4, 0, killed);
     }
     move(0,0);
     refresh();
     return 0;
 }
 
-//int main(){
-//    Gameboard b (5, 5);
-//
-//    TankBean t;
-//    Coordinates pos;
-//    pos.first = 1;
-//    pos.second = 1;
-//    t.team = GREEN;
-//    t.position = pos;
-//    t.pid = 1;
-//    b.insertTank(&t);
-//
-//    TankBean s;
-//    s.team = RED;
-//    Coordinates poss;
-//    poss.first = 1;
-//    poss.second = 0;
-//    s.position = poss;
-//    b.insertTank(&s);
-//
-////    b.deleteTank(&s);
-////    b.deleteTank(&t);
-//
-//    getch();
-//
-//    return 0;
-//}

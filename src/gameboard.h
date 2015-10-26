@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <utility>
 #include "tankbean.h"
+#include "string"
 
 
 class Gameboard
@@ -27,6 +28,8 @@ public:
 private:
     int x;
     int y;
+    int redKilled;
+    int greenKilled;
 };
 
 
