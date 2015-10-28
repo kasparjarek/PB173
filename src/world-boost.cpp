@@ -67,8 +67,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    World world(areaX, areaY, totalRespawn, redCount, greenCount);
-    world.start();
+//    World world(areaX, areaY, totalRespawn, redCount, greenCount);
+//    world.start();
 
     return 0;
 }

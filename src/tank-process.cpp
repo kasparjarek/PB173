@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     /* Random sleep time in microseconds with precision to miliseconds */
     size_t usec = ((rand() % ((sleepMax - sleepMin) * 1000)) + sleepMin * 1000) * 1000;
 
-    syslog(LOG_INFO, "Tank with pid %d was created\n", getpid());
+    syslog(LOG_INFO, "tank with pid %d was created\n", getpid());
 //    cout << "tank " << getpid() << " created" << endl;
 
     usleep(usec);

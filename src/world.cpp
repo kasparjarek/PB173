@@ -11,24 +11,24 @@ using namespace std;
 
 World::World(int areaX,
              int areaY,
-             int totalRespawn,
              int redCount,
-             int greenCount)
-    : areaX(areaX), areaY(areaY), totalRespawn(totalRespawn), currentRespawn(0),
-      redCount(redCount), greenCount(greenCount)
+             int greenCount,
+             int namedPipe,
+             useconds_t roundTime,
+             const char *const greenTankPath,
+             const char *const redTankPath)
+    : areaX(areaX), areaY(areaY), redCount(redCount), greenCount(greenCount), namedPipe(namedPipe),
+      roundTime(roundTime), greenTankPath(greenTankPath), redTankPath(redTankPath), roundCount(0)
 {
     srand((unsigned int) time(NULL));
 
-    if (areaX < 0 || areaY < 0 || redCount < 0 || greenCount < 0
-            || totalRespawn < 0 || (areaY * areaX < redCount + greenCount)) {
+    if (areaX < 0 || areaY < 0 || redCount < 0 || greenCount < 0 || (areaY * areaX < redCount + greenCount)) {
         throw runtime_error("invalid parameters");
     }
 }
 
 int World::start()
 {
-
-    gameboard.printframe(areaX, areaY);
 
     if (createTanks(Team::GREEN, greenCount) != 0) {
         return -1;
@@ -38,75 +38,48 @@ int World::start()
         return -1;
     }
 
-
-    int status = 0;
-    TankBean tank;
-    pid_t tankPid = 0;
-    while (totalRespawn > currentRespawn) {
-        tankPid = wait(&status);
-        if (respawnTank(tankPid) == nullptr) {
-            freeTanks();
-            return -1;
-        }
-        currentRespawn++;
+    while (0) {
+        performGameRound();
     }
 
-    freeTanks();
+    clearTanks();
     return 0;
 }
 
-void World::freeTanks()
+void World::clearTanks()
 {
-    for (TankBean *i : tanksByPid) {
-        delete i;
+    for (auto row : tanks) {
+        for (auto tank : row.second) {
+            delete tank.second;
+        }
     }
 
-    tanksByPid.clear();
-    tanksByPosition.clear();
+    tanks.clear();
 }
 
-TankBean * World::createTank(Team team)
+Tank *World::createTank(Team team)
 {
-    TankBean *newTank = new TankBean();
-    newTank->team = team;
+    Tank *newTank = nullptr;
 
-    do {
-        newTank->position = Coordinates(rand() % areaX, rand() % areaY);
+    try {
+        newTank = new Tank(team, (team == Team::GREEN) ? greenTankPath : redTankPath);
     }
-    while (!tanksByPosition.insert(newTank).second);
-
-
-    pid_t tankPid = fork();
-
-    if (tankPid == -1) {
-        syslog(LOG_ERR, "Creating new tank failed: %s", strerror(errno));
-        tanksByPosition.erase(newTank);
-        delete newTank;
+    catch (runtime_error error) {
+        syslog(LOG_ERR, "Creating new tank failed: %s", error.what());
         return nullptr;
     }
-    // Child
-    else if (tankPid == 0) {
-        /* TODO: change sleep-min and sleep-max */
-        if (execl("tank", "tank", "--sleep-min", "1", "--sleep-max", "3", NULL) == -1) {
-            syslog(LOG_ERR, "execl() failed: %s", strerror(errno));
-        }
-        exit(-1);
+
+    // Find random Y
+    auto row = tanks[abs(rand() % areaY)];
+    while (row.size() == areaX + 1) {
+        row = tanks[abs(rand() % areaY)];
     }
 
-    // Parent
-    newTank->pid = tankPid;
-    if (!tanksByPid.insert(newTank).second) {
-        syslog(LOG_WARNING, "Tank with pid %d already exist in tanksByPid set. This tank is replaced.", tankPid);
+    // Find random X
+    while (!row.insert(pair<int, Tank *>(abs(rand() % areaX), newTank)).second) {
 
-        // Remove outdated tank from tanksByPid set
-        auto outdatedTank = tanksByPid.insert(newTank).first;
-        delete *outdatedTank;
-        tanksByPid.erase(outdatedTank);
-
-        tanksByPid.insert(newTank);
     }
 
-    gameboard.insertTank(newTank);
     return newTank;
 }
 
@@ -114,30 +87,255 @@ int World::createTanks(Team team, int count)
 {
     for (int i = 0; i < count; ++i) {
         if (createTank(team) == nullptr) {
-            freeTanks();
+            clearTanks();
             return -1;
         }
     }
     return 0;
 }
 
-TankBean * World::respawnTank(pid_t tankPid)
+int World::restart()
 {
-    TankBean requiredTank;
-    requiredTank.pid = tankPid;
-    auto iter = tanksByPid.find(&requiredTank);
-    if (iter == tanksByPid.end()) {
-        syslog(LOG_NOTICE, "tanksByPid set doesn't containt tank with %d pid. Nothing will be respawned.", tankPid);
-        return nullptr;
+    return 0;
+}
+
+int World::performGameRound()
+{
+    roundCount++;
+
+    // Handle FIRE action
+    for (auto rowIter = tanks.begin(); rowIter != tanks.end(); ++rowIter) {
+        for (auto colIter = rowIter->second.begin(); colIter != rowIter->second.end(); ++colIter) {
+            Tank *tank = colIter->second;
+
+            if (tank->fetchAction() == 0) {
+
+                switch (tank->getAction()) {
+
+                    case FIRE_UP: {
+                        auto iterUp = tanks.begin();
+                        while (iterUp != rowIter) {
+                            auto tankIterUp = iterUp->second.find(colIter->first);
+                            if (tankIterUp != iterUp->second.end()) {
+                                logTankHit(colIter->second->getPid(), colIter->first, rowIter->first,
+                                           tankIterUp->second->getPid(), colIter->first, iterUp->first);
+                                tankIterUp->second->markAsDestroyed();
+                            }
+                            iterUp++;
+                        }
+                        break;
+                    }
+
+                    case FIRE_DOWN: {
+                        auto iterDown = rowIter;
+                        while (++iterDown != tanks.end()) {
+                            auto tankIterDown = iterDown->second.find(colIter->first);
+                            if (tankIterDown != iterDown->second.end()) {
+                                logTankHit(colIter->second->getPid(), colIter->first, rowIter->first,
+                                           tankIterDown->second->getPid(), colIter->first, iterDown->first);
+                                tankIterDown->second->markAsDestroyed();
+                            }
+                        }
+                        break;
+                    }
+
+                    case FIRE_RIGHT: {
+                        auto iterRight = colIter;
+                        while (++iterRight != rowIter->second.end()) {
+                            logTankHit(colIter->second->getPid(), colIter->first, rowIter->first,
+                                       iterRight->second->getPid(), iterRight->first, rowIter->first);
+                            iterRight->second->markAsDestroyed();
+                        }
+                        break;
+                    }
+
+                    case FIRE_LEFT: {
+                        auto iterLeft = rowIter->second.begin();
+                        while (iterLeft != colIter) {
+                            logTankHit(colIter->second->getPid(), colIter->first, rowIter->first,
+                                       iterLeft->second->getPid(), iterLeft->first, rowIter->first);
+                            iterLeft->second->markAsDestroyed();
+                            iterLeft++;
+                        }
+                        break;
+                    }
+
+                    default:
+                        break;
+                }
+            }
+        }
     }
 
-    gameboard.deleteTank(*iter);
+    // Handle MOVE action
+    auto rowIter = tanks.begin();
+    while (rowIter != tanks.end()) {
 
-    // Remove tank from sets
-    tanksByPosition.erase(*iter);
-    Team t = (*iter)->team;
-    delete *iter;
-    tanksByPid.erase(iter);
+        auto colIter = rowIter->second.begin();
+        while (colIter != rowIter->second.end()) {
+            Tank *tank = colIter->second;
 
-    return createTank(t);
+            if (tank->isDestroyed()) {
+                rowIter->second.erase(colIter++);
+                delete tank;
+                continue;
+            }
+
+            switch (tank->getAction()) {
+
+                case MOVE_UP:
+                    // Am I at the end of map?
+                    if (rowIter->first == 0) {
+                        logTankRolledOffTheMap(tank->getPid(), colIter->first, rowIter->first);
+                    }
+                    else {
+                        // No tank above, Move up
+                        if (rowIter == tanks.begin()) {
+                            tanks[rowIter->first - 1].insert(pair<int, Tank *>(colIter->first, tank));
+                            rowIter->second.erase(colIter++);
+                            continue;
+                        }
+
+                        auto closestUpRow = rowIter;
+                        closestUpRow--;
+                        auto closestUp = closestUpRow->second.find(colIter->first);
+
+                        // Tank crash
+                        if (rowIter->first - 1 == closestUpRow->first && closestUp != closestUpRow->second.end()) {
+                            logTankCrash(tank->getPid(), colIter->first, rowIter->first,
+                                         closestUp->second->getPid(), colIter->first, closestUpRow->first);
+                            closestUpRow->second.erase(closestUp);
+                        }
+                        // Move up
+                        else {
+                            // Missing row
+                            if (rowIter->first - 1 != closestUpRow->first) {
+                                tanks[rowIter->first - 1].insert(pair<int, Tank *>(colIter->first, tank));
+                            }
+                            else {
+                                closestUpRow->second.insert(pair<int, Tank *>(colIter->first, tank));
+                            }
+                        }
+                    }
+                    rowIter->second.erase(colIter++);
+                    continue;
+
+
+                case MOVE_DOWN:
+                    // Am I at the end of map?
+                    if (rowIter->first + 1 >= areaY) {
+                        logTankRolledOffTheMap(tank->getPid(), colIter->first, rowIter->first);
+                    }
+                    else {
+                        auto closestDownRow = rowIter;
+                        closestDownRow++;
+
+                        // Create new row and Move Down
+                        if (closestDownRow == tanks.end() || rowIter->first + 1 != closestDownRow->first) {
+                            tanks[rowIter->first + 1].insert(pair<int, Tank *>(colIter->first, tank));
+                        }
+                        // Row exist
+                        else {
+                            auto closestDown = closestDownRow->second.find(colIter->first);
+
+                            // Crash
+                            if (closestDown != closestDownRow->second.end()) {
+                                logTankCrash(tank->getPid(), colIter->first, rowIter->first,
+                                             closestDown->second->getPid(), colIter->first, closestDownRow->first);
+                                closestDownRow->second.erase(closestDown);
+                            }
+                            // Move down
+                            else {
+                                closestDownRow->second.insert(pair<int, Tank *>(colIter->first, tank));
+                            }
+                        }
+                    }
+
+                    rowIter->second.erase(colIter++);
+                    continue;
+
+
+                case MOVE_RIGHT:
+                    // Am I at the end of map?
+                    if (colIter->first + 1 >= areaX) {
+                        logTankRolledOffTheMap(tank->getPid(), colIter->first, rowIter->first);
+                    }
+                    else {
+                        auto closestRight = colIter;
+                        closestRight++;
+
+                        // Tank crash
+                        if (closestRight != rowIter->second.end() && colIter->first + 1 == closestRight->first) {
+                            logTankCrash(tank->getPid(), colIter->first, rowIter->first,
+                                         closestRight->second->getPid(), closestRight->first, rowIter->first);
+                            rowIter->second.erase(closestRight);
+                        }
+                        // Move Right
+                        else {
+                            rowIter->second.insert(colIter, pair<int, Tank *>(colIter->first + 1, tank));
+                        }
+
+                    }
+
+                    rowIter->second.erase(colIter++);
+                    continue;
+
+
+                case MOVE_LEFT:
+                    // Am I at the end of map?
+                    if (colIter->first == 0) {
+                        logTankRolledOffTheMap(tank->getPid(), colIter->first, rowIter->first);
+                    }
+                    else {
+                        auto closestLeft = colIter;
+                        closestLeft--;
+
+                        // Tank crash
+                        if (colIter != rowIter->second.begin() && colIter->first - 1 == closestLeft->first) {
+                            logTankCrash(tank->getPid(), colIter->first, rowIter->first,
+                                         closestLeft->second->getPid(), closestLeft->first, rowIter->first);
+                            rowIter->second.erase(closestLeft);
+                        }
+                        // Move Left
+                        else {
+                            rowIter->second.insert(pair<int, Tank *>(colIter->first - 1, tank));
+                        }
+                    }
+
+                    rowIter->second.erase(colIter++);
+                    continue;
+
+
+                default:
+                    break;
+            }
+
+
+            colIter++;
+        }
+
+        rowIter++;
+    }
+
+
+    // Send game state into named pipe
+
+
+    usleep(roundTime);
+    return 0;
+}
+
+void World::logTankHit(pid_t aggressorPid, int aggressorX, int aggressorY, pid_t victimPid, int victimX, int victimY)
+{
+    syslog(LOG_INFO, "Aggresor with pid %d at [%d,%d] destroy tank with pid %d on [%d,%d].",
+           aggressorPid, aggressorX, aggressorY, victimPid, victimX, victimY);
+}
+void World::logTankRolledOffTheMap(pid_t pid, int x, int y)
+{
+    syslog(LOG_INFO, "Tank with pid %d at [%d,%d] rolled off the map.", pid, x, y);
+}
+void World::logTankCrash(pid_t aggressorPid, int aggressorX, int aggressorY, pid_t victimPid, int victimX, int victimY)
+{
+    syslog(LOG_INFO, "Tank with pid %d at [%d,%d] crashed into tank with pid %d at [%d,%d].",
+           aggressorPid, aggressorX, aggressorY, victimPid, victimX, victimY);
 }
