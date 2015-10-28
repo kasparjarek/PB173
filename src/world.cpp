@@ -178,7 +178,7 @@ int World::performActions()
         }
     }
 
-    // Handle MOVE action
+    // Handle MOVE action and remove destroyed tanks
     auto rowIter = tanks.begin();
     while (rowIter != tanks.end()) {
 
@@ -215,6 +215,7 @@ int World::performActions()
                         if (rowIter->first - 1 == closestUpRow->first && closestUp != closestUpRow->second.end()) {
                             logTankCrash(tank->getPid(), colIter->first, rowIter->first,
                                          closestUp->second->getPid(), colIter->first, closestUpRow->first);
+                            delete closestUp->second;
                             closestUpRow->second.erase(closestUp);
                         }
                         // Move up
@@ -228,6 +229,7 @@ int World::performActions()
                             }
                         }
                     }
+                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
@@ -253,6 +255,7 @@ int World::performActions()
                             if (closestDown != closestDownRow->second.end()) {
                                 logTankCrash(tank->getPid(), colIter->first, rowIter->first,
                                              closestDown->second->getPid(), colIter->first, closestDownRow->first);
+                                delete closestDown->second;
                                 closestDownRow->second.erase(closestDown);
                             }
                             // Move down
@@ -261,7 +264,7 @@ int World::performActions()
                             }
                         }
                     }
-
+                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
@@ -279,6 +282,7 @@ int World::performActions()
                         if (closestRight != rowIter->second.end() && colIter->first + 1 == closestRight->first) {
                             logTankCrash(tank->getPid(), colIter->first, rowIter->first,
                                          closestRight->second->getPid(), closestRight->first, rowIter->first);
+                            delete closestRight->second;
                             rowIter->second.erase(closestRight);
                         }
                         // Move Right
@@ -287,7 +291,7 @@ int World::performActions()
                         }
 
                     }
-
+                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
@@ -305,6 +309,7 @@ int World::performActions()
                         if (colIter != rowIter->second.begin() && colIter->first - 1 == closestLeft->first) {
                             logTankCrash(tank->getPid(), colIter->first, rowIter->first,
                                          closestLeft->second->getPid(), closestLeft->first, rowIter->first);
+                            delete closestLeft->second;
                             rowIter->second.erase(closestLeft);
                         }
                         // Move Left
@@ -312,7 +317,7 @@ int World::performActions()
                             rowIter->second.insert(pair<int, Tank *>(colIter->first - 1, tank));
                         }
                     }
-
+                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
