@@ -28,14 +28,12 @@ public:
     }
 
     /**
-     * Start game. Game board is displayed and tank processes are created.
-     * Wait for terminating tank processes and respawning new, until totalRespawn
-     * is reached.
+     * Start game. Game is running until someone call stop method, then the game is reset and ready for new start.
      * @return -1 when occurs some error, 0 otherwise
      */
     int start();
 
-    int restart();
+    int stop();
 
 private:
     int areaX;
@@ -47,13 +45,14 @@ private:
     const char *const greenTankPath;
     const char *const redTankPath;
     unsigned int roundCount;
+    bool done;
 
     map<int, map<int, Tank*> > tanks;
 
 
     /**
      * Create tank - generate random position for tank, create child process
-     * and add new Tank pointer into sets maintaining tanks.
+     * and add new Tank pointer into maps maintaining tanks.
      * @return pointer to created tank or nullptr if creating failed
      */
     Tank * createTank(Team team);
@@ -65,7 +64,17 @@ private:
      */
     int createTanks(Team team, int count);
 
-    int performGameRound();
+    /**
+     * Iterate through all tanks ale perform theirs actions
+     */
+    int performActions();
+
+    int printGameBoard();
+
+    /**
+     * Empty map maintaining tanks and free memory occupied by this tank.
+     */
+    void clearTanks();
 
     void logTankHit(pid_t aggressorPid, int aggressorX, int aggressorY,
                     pid_t victimPid, int victimX, int victimY);
@@ -74,11 +83,6 @@ private:
 
     void logTankCrash(pid_t aggressorPid, int aggressorX, int aggressorY,
                       pid_t victimPid, int victimX, int victimY);
-
-    /**
-     * Empty map maintaining tanks and free memory occupied by this tanks.
-     */
-    void clearTanks();
 };
 
 #endif //INTERNET_OF_TANKS_WORLD_H

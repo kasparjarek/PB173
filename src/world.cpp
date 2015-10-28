@@ -5,6 +5,8 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <sys/errno.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "world.h"
 
 using namespace std;
@@ -18,7 +20,8 @@ World::World(int areaX,
              const char *const greenTankPath,
              const char *const redTankPath)
     : areaX(areaX), areaY(areaY), redCount(redCount), greenCount(greenCount), namedPipe(namedPipe),
-      roundTime(roundTime), greenTankPath(greenTankPath), redTankPath(redTankPath), roundCount(0)
+      roundTime(roundTime), greenTankPath(greenTankPath), redTankPath(redTankPath), roundCount(0),
+      done(false)
 {
     srand((unsigned int) time(NULL));
 
@@ -29,7 +32,6 @@ World::World(int areaX,
 
 int World::start()
 {
-
     if (createTanks(Team::GREEN, greenCount) != 0) {
         return -1;
     }
@@ -38,11 +40,22 @@ int World::start()
         return -1;
     }
 
-    while (0) {
-        performGameRound();
+    done = false;
+    while (!done) {
+        roundCount++;
+        performActions();
+        printGameBoard();
+        usleep(roundTime);
     }
 
     clearTanks();
+    roundCount = 0;
+    return 0;
+}
+
+int World::stop()
+{
+    done = true;
     return 0;
 }
 
@@ -94,15 +107,13 @@ int World::createTanks(Team team, int count)
     return 0;
 }
 
-int World::restart()
+int World::printGameBoard()
 {
     return 0;
 }
 
-int World::performGameRound()
+int World::performActions()
 {
-    roundCount++;
-
     // Handle FIRE action
     for (auto rowIter = tanks.begin(); rowIter != tanks.end(); ++rowIter) {
         for (auto colIter = rowIter->second.begin(); colIter != rowIter->second.end(); ++colIter) {
@@ -317,14 +328,8 @@ int World::performGameRound()
         rowIter++;
     }
 
-
-    // Send game state into named pipe
-
-
-    usleep(roundTime);
     return 0;
 }
-
 void World::logTankHit(pid_t aggressorPid, int aggressorX, int aggressorY, pid_t victimPid, int victimX, int victimY)
 {
     syslog(LOG_INFO, "Aggresor with pid %d at [%d,%d] destroy tank with pid %d on [%d,%d].",
