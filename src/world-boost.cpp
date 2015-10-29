@@ -7,12 +7,14 @@ using namespace std;
 extern char *optarg;
 extern int optind;
 
-const char *ARGS = "h";
+const char *ARGS = "hdp";
 const struct option LONG_ARGS[] = {
     {"green-tanks", required_argument, NULL, 'g'},
     {"red-tanks", required_argument, NULL, 'r'},
     {"total-respawn", required_argument, NULL, 't'},
     {"area-size", required_argument, NULL, 'a'},
+    {"daemonize", no_argument, NULL, 'd'},
+    {"pipe", required_argument, NULL, 'p'},
     {"help", no_argument, NULL, 'h'},
     {0, 0, 0, 0}
 };
@@ -32,6 +34,14 @@ void usage()
     cout << "\t\t" << "game area will have size <N> x <M>" << endl << endl;
     cout << "\t" << "-h, --help" << endl;
     cout << "\t\t" << "shows this help" << endl << endl;
+}
+
+static World *world = nullptr;
+
+static void terminate(int signo)
+{
+    if (world != nullptr)
+        world->stop();
 }
 
 int main(int argc, char *argv[])
@@ -63,12 +73,24 @@ int main(int argc, char *argv[])
             break;
         default:
             usage();
-            abort();
+            exit(1);
         }
     }
 
-//    World world(areaX, areaY, totalRespawn, redCount, greenCount);
-//    world.start();
+    //world = new World(areaX, areaY, totalRespawn, redCount, greenCount);
+
+    struct sigaction termsa;
+    sigemptyset(&termsa.sa_mask);
+    termsa.sa_flags = 0;
+    termsa.sa_handler = terminate;
+
+    sigaction(SIGQUIT, &termsa, NULL);
+    sigaction(SIGINT, &termsa, NULL);
+    sigaction(SIGTERM, &termsa, NULL);
+
+    //world.start();
+
+    //delete world;
 
     return 0;
 }

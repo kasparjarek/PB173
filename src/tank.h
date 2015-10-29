@@ -2,6 +2,8 @@
 #define INTERNET_OF_TANKS_TANK_H
 
 #include <utility>
+#include <cerrno>
+#include <cstring>
 #include <sys/types.h>
 #include <signal.h>
 #include <syslog.h>
@@ -23,7 +25,7 @@ class Tank
 {
 public:
 
-    Tank(const Team &team, const char *const tankBinaryPath);
+    Tank(const Team &team, const char *const tankBinaryPath, int areaX, int areaY);
 
     virtual ~Tank()
     {

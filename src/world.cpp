@@ -75,7 +75,7 @@ Tank *World::createTank(Team team)
     Tank *newTank = nullptr;
 
     try {
-        newTank = new Tank(team, (team == Team::GREEN) ? greenTankPath : redTankPath);
+        newTank = new Tank(team, (team == Team::GREEN) ? greenTankPath : redTankPath, areaX, areaY);
     }
     catch (runtime_error error) {
         syslog(LOG_ERR, "Creating new tank failed: %s", error.what());

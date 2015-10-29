@@ -1,71 +1,85 @@
 #include <ctime>
-#include <iostream>
-#include <stdexcept>
+#include <csignal>
+#include <cstdlib>
 #include <getopt.h>
 #include <syslog.h>
 #include <unistd.h>
+#include "tank.h"
 
 using namespace std;
 
-extern char *optarg;
-
-const char *ARGS = "h";
 const struct option LONG_ARGS[] = {
-    {"sleep-max", required_argument, NULL, 's'},
-    {"sleep-min", required_argument, NULL, 't'},
-    {"help", no_argument, NULL, 'h'},
+    {"area-size", required_argument, NULL, 'a'},
     {0, 0, 0, 0}
 };
 
-void usage()
+void doAction(int signo)
 {
-    cout << "Usage:" << endl;
-    cout << "\t" << "--sleep-max <N>" << endl;
-    cout << "\t\t" << "maximum sleep time in seconds" << endl << endl;
-    cout << "\t" << "--sleep-min <N>" << endl;
-    cout << "\t\t" << "minimum sleep time in seconds" << endl << endl;
-    cout << "\t" << "-h, --help" << endl;
-    cout << "\t\t" << "shows this help" << endl << endl;
+    if (signo != SIGUSR2)
+        syslog(LOG_ERR, "Error: invalid signal");
+
+    char buf[2];
+
+    enum Action action = static_cast<enum Action>((rand() % 8)  + 1);
+    switch (action) {
+    case MOVE_UP:
+        strncpy(buf, "mu", 2);
+        break;
+    case MOVE_DOWN:
+        strncpy(buf, "md", 2);
+        break;
+    case MOVE_RIGHT:
+        strncpy(buf, "mr", 2);
+        break;
+    case MOVE_LEFT:
+        strncpy(buf, "ml", 2);
+        break;
+    case FIRE_UP:
+        strncpy(buf, "fu", 2);
+        break;
+    case FIRE_DOWN:
+        strncpy(buf, "fd", 2);
+        break;
+    case FIRE_RIGHT:
+        strncpy(buf, "fr", 2);
+        break;
+    case FIRE_LEFT:
+        strncpy(buf, "fl", 2);
+    default:
+        ;
+    }
+
+    write(STDOUT_FILENO, buf, 2);
 }
+
 
 int main(int argc, char *argv[])
 {
     char opt = 0;
-    int sleepMin = -1;
-    int sleepMax = -1;
+    int areaX, areaY;
 
-    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "", LONG_ARGS, NULL)) != -1) {
         switch (opt) {
-        case 'h':
-            usage();
-            return 0;
-        case 's':
-            sleepMax = atoi(optarg);
-            break;
-        case 't':
-            sleepMin = atoi(optarg);
+        case 'a':
+            areaX = atoi(optarg);
+            areaY = atoi(argv[optind++]);
             break;
         default:
-            usage();
-            abort();
+            exit(1);
         }
-    }
-
-    if (sleepMax < 0 || sleepMin < 0 || sleepMax < sleepMin) {
-        throw runtime_error("invalid parameters");
     }
 
     srand(getpid());
 
-    /* Random sleep time in microseconds with precision to miliseconds */
-    size_t usec = ((rand() % ((sleepMax - sleepMin) * 1000)) + sleepMin * 1000) * 1000;
+    struct sigaction act;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    act.sa_handler = doAction;
 
-    syslog(LOG_INFO, "tank with pid %d was created\n", getpid());
-//    cout << "tank " << getpid() << " created" << endl;
+    sigaction(SIGUSR2, &act, NULL);
 
-    usleep(usec);
-    /* Just some demo, showing problem with rand() */
-//    cout << "tank " << getpid() << " destroyed, lasted " << usec / 1000000.0 << " sec" << endl;
+    while (true)
+        pause();
 
     return 0;
 }

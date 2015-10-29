@@ -8,7 +8,7 @@
 #include "tank.h"
 
 
-Tank::Tank(const Team &team, const char *const tankBinaryPath)
+Tank::Tank(const Team &team, const char *const tankBinaryPath, int areaX, int areaY)
     : team(team), tankBinaryPath(tankBinaryPath), destroyed(false), action(UNDEFINED)
 {
     int pfd[2];
@@ -29,7 +29,10 @@ Tank::Tank(const Team &team, const char *const tankBinaryPath)
         close(STDOUT_FILENO);
         dup2(pfd[1], STDOUT_FILENO);
 
-        if (execl(tankBinaryPath, tankBinaryPath, NULL) == -1) {
+        std::string x = std::to_string(areaX);
+        std::string y = std::to_string(areaY);
+
+        if (execl(tankBinaryPath, tankBinaryPath, "--area-size", x.c_str(), y.c_str(),  NULL) == -1) {
             syslog(LOG_ERR, "execl() failed: %s", strerror(errno));
         }
         exit(-1);
