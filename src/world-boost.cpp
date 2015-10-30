@@ -77,17 +77,17 @@ static void resthdl(int signo)
 int main(int argc, char *argv[])
 {
     /* Check if there is another instance of world running */
-    int wpfd;
-    if ((wpfd = open(WORLD_PID_PATH, O_RDWR)) == -1) {
+
+    FILE *worldPid;
+    if ((worldPid = fopen(WORLD_PID_PATH, "a+")) == NULL) {
         syslog(LOG_ERR, "cannot open %s: %s", WORLD_PID_PATH, strerror(errno));
         exit(1);
     }
 
     pid_t savedPid;
-    if (read(wpfd, &savedPid, sizeof(pid_t)) == 0) {
-        pid_t myPid = getpid();
-        write(wpfd, &myPid, sizeof(pid_t));
-        close(wpfd);
+    if (fscanf(worldPid, "%d", &savedPid) == EOF) {
+        fprintf(worldPid, "%d", getpid());
+        fclose(worldPid);
     } else {
         if (savedPid != getpid()) {
             syslog(LOG_INFO, "world pid %d is already running", savedPid);
@@ -132,28 +132,32 @@ int main(int argc, char *argv[])
         case 'd':   // --daemonize
             if (daemon(1, 0) != 0) {
                 syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
+                unlink(WORLD_PID_PATH);
                 exit(1);
             }
             openlog(NULL, 0, LOG_DAEMON);
             break;
         case 'p':   // --pipe
             fifoPath = optarg;
-            mkfifo(fifoPath, S_IRUSR | S_IWUSR);
-            if ((namedPipe = open(fifoPath, O_WRONLY)) == -1) {
-                syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
-                exit(1);
-            }
             break;
         case 't':   // --round-time
             roundTime = atoi(optarg);
             break;
         default:
             usage();
+            unlink(WORLD_PID_PATH);
             exit(1);
         }
     }
 
     // TODO: do we have all the necessary arguments?
+
+    mkfifo(fifoPath, S_IRUSR | S_IWUSR);
+    if ((namedPipe = open(fifoPath, O_WRONLY)) == -1) {
+        syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
+        unlink(WORLD_PID_PATH);
+        exit(1);
+    }
 
     /* Set signal actions */
     struct sigaction termsa;
