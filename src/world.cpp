@@ -118,7 +118,7 @@ int World::printGameBoard()
 
     for (int i = 0; i < areaY; ++i) {
         for (int j = 0; j < areaX; ++j) {
-            if (tanks[i].find(j) != tanks[i].end()) {
+            if (tanks.find(i) != tanks.end() && tanks[i].find(j) != tanks[i].end()) {
                 if (tanks[i][j]->getTeam() == GREEN)
                     write(namedPipe, &green, sizeof(char));
                 else
