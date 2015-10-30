@@ -5,9 +5,8 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <sys/errno.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include "world.h"
+#include "tank.h"
 
 using namespace std;
 
@@ -107,7 +106,30 @@ int World::createTanks(Team team, int count)
 
 int World::printGameBoard()
 {
-    // TODO
+    char comma = ',';
+    char green = 'g';
+    char red = 'r';
+    char notank = '0';
+
+    write(namedPipe, &areaX, sizeof(areaX));
+    write(namedPipe, &comma, sizeof(char));
+    write(namedPipe, &areaY, sizeof(areaY));
+    write(namedPipe, &comma, sizeof(char));
+
+    for (int i = 0; i < areaY; ++i) {
+        for (int j = 0; j < areaX; ++j) {
+            if (tanks[i][j] != nullptr) {
+                if (tanks[i][j]->getTeam() == GREEN)
+                    write(namedPipe, &green, sizeof(char));
+                else
+                    write(namedPipe, &red, sizeof(char));
+            } else {
+                write(namedPipe, &notank, sizeof(char));
+            }
+            write(namedPipe, &comma, sizeof(char));
+        }
+    }
+
     return 0;
 }
 

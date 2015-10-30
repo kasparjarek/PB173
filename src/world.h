@@ -48,7 +48,7 @@ private:
     const char *const redTankPath;
     unsigned int roundCount;
 
-    map<int, map<int, Tank*> > tanks;
+    map<int, map<int, Tank*> > tanks;   // row, column
 
 
     /**
