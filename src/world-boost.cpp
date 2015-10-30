@@ -47,12 +47,18 @@ volatile bool restart = false;
 
 static void termhdl(int signo)
 {
-    done = true;
+    if (signo != SIGQUIT && signo != SIGTERM && signo != SIGINT)
+        syslog(LOG_ERR, "Error: invalid signal");
+    else
+        done = true;
 }
 
 static void resthdl(int signo)
 {
-    restart = true;
+    if (signo != SIGUSR1)
+        syslog(LOG_ERR, "Error: invalid signal");
+    else
+        restart = true;
 }
 
 int main(int argc, char *argv[])
@@ -64,7 +70,6 @@ int main(int argc, char *argv[])
     int areaY = -1;
     int redCount = -1;
     int greenCount = -1;
-    int totalRespawn = -1;
     char *fifoPath;
     int namedPipe;
     useconds_t roundTime = 0;
@@ -130,18 +135,16 @@ int main(int argc, char *argv[])
 
     World world(areaX, areaY, redCount, greenCount, namedPipe, roundTime, greenTankPath, redTankPath);
 
-    world.start();
+    world.init();
 
     while (!done) {
         if (restart) {
             world.restart();
-            restart = 0;
+            restart = false;
         } else {
-            world.run();
+            world.performRound();
         }
     }
-
-    world.stop();
 
     return 0;
 }

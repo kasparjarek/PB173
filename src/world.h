@@ -31,13 +31,11 @@ public:
      * Start game. Game is running until someone call stop method, then the game is reset and ready for new start.
      * @return -1 when occurs some error, 0 otherwise
      */
-    int start();
+    int init();
 
-    void run();
+    void performRound();
 
     int restart();
-
-    void stop();
 
 private:
     int areaX;

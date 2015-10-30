@@ -29,7 +29,7 @@ World::World(int areaX,
     }
 }
 
-int World::start()
+int World::init()
 {
     if (createTanks(Team::GREEN, greenCount) != 0) {
         return -1;
@@ -42,7 +42,7 @@ int World::start()
     return 0;
 }
 
-void World::run()
+void World::performRound()
 {
     roundCount++;
     performActions();
@@ -52,14 +52,9 @@ void World::run()
 
 int World::restart()
 {
-    stop();
-    return start();
-}
-
-void World::stop()
-{
     clearTanks();
     roundCount = 0;
+    return init();
 }
 
 void World::clearTanks()
@@ -87,7 +82,7 @@ Tank *World::createTank(Team team)
 
     // Find random Y
     auto row = tanks[abs(rand() % areaY)];
-    while (row.size() == areaX + 1) {
+    while (row.size() - areaX - 1 == 0) {
         row = tanks[abs(rand() % areaY)];
     }
 
