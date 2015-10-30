@@ -25,7 +25,7 @@ class Tank
 {
 public:
 
-    Tank(const Team &team, const char *const tankBinaryPath, int areaX, int areaY);
+    Tank(const Team &team, const char *const tankBinaryPath);
 
     virtual ~Tank()
     {

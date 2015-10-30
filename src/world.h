@@ -33,7 +33,11 @@ public:
      */
     int start();
 
-    int stop();
+    void run();
+
+    int restart();
+
+    void stop();
 
 private:
     int areaX;
@@ -45,7 +49,6 @@ private:
     const char *const greenTankPath;
     const char *const redTankPath;
     unsigned int roundCount;
-    bool done;
 
     map<int, map<int, Tank*> > tanks;
 

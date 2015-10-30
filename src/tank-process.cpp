@@ -8,19 +8,23 @@
 
 using namespace std;
 
-const struct option LONG_ARGS[] = {
-    {"area-size", required_argument, NULL, 'a'},
-    {0, 0, 0, 0}
-};
+volatile bool action = false;
 
-void doAction(int signo)
+void acthdl(int signo)
 {
     if (signo != SIGUSR2)
         syslog(LOG_ERR, "Error: invalid signal");
+    else
+        action = true;
+}
+
+void doAction()
+{
 
     char buf[2];
 
     enum Action action = static_cast<enum Action>((rand() % 8)  + 1);
+
     switch (action) {
     case MOVE_UP:
         strncpy(buf, "mu", 2);
@@ -55,31 +59,22 @@ void doAction(int signo)
 
 int main(int argc, char *argv[])
 {
-    char opt = 0;
-    int areaX, areaY;
-
-    while ((opt = getopt_long(argc, argv, "", LONG_ARGS, NULL)) != -1) {
-        switch (opt) {
-        case 'a':
-            areaX = atoi(optarg);
-            areaY = atoi(argv[optind++]);
-            break;
-        default:
-            exit(1);
-        }
-    }
-
     srand(getpid());
 
     struct sigaction act;
     sigemptyset(&act.sa_mask);
     act.sa_flags = 0;
-    act.sa_handler = doAction;
+    act.sa_handler = acthdl;
 
     sigaction(SIGUSR2, &act, NULL);
 
-    while (true)
+    while (true) {
         pause();
+        if (action) {
+            doAction();
+            action = false;
+        }
+    }
 
     return 0;
 }
