@@ -24,8 +24,6 @@ const struct option LONG_ARGS[] = {
     {0, 0, 0, 0}
 };
 
-const char *WORLD_PID_PATH = "/var/run/world.pid";
-
 void usage()
 {
     cout << "Usage:" << endl;
@@ -79,11 +77,14 @@ static void resthdl(int signo)
 int main(int argc, char *argv[])
 {
     /* Check if there is another instance of world running */
-
+    char *worldPidPath = "/var/run/world.pid";
     FILE *worldPid;
-    if ((worldPid = fopen(WORLD_PID_PATH, "a+")) == NULL) {
-        syslog(LOG_ERR, "cannot open %s: %s", WORLD_PID_PATH, strerror(errno));
-        exit(1);
+    if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
+        worldPidPath = "world.pid";
+        if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
+            syslog(LOG_ERR, "cannot open %s: %s", worldPidPath, strerror(errno));
+            exit(1);
+        }
     }
 
     pid_t savedPid;
@@ -145,7 +146,7 @@ int main(int argc, char *argv[])
         case 'd':   // --daemonize
             if (daemon(1, 0) != 0) {
                 syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
-                unlink(WORLD_PID_PATH);
+                unlink(worldPidPath);
                 exit(1);
             }
             openlog(NULL, 0, LOG_DAEMON);
@@ -155,7 +156,7 @@ int main(int argc, char *argv[])
             break;
         default:
             usage();
-            unlink(WORLD_PID_PATH);
+            unlink(worldPidPath);
             exit(1);
         }
     }
@@ -165,7 +166,7 @@ int main(int argc, char *argv[])
     mkfifo(fifoPath, S_IRUSR | S_IWUSR);
     if ((namedPipe = open(fifoPath, O_WRONLY)) == -1) {
         syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
-        unlink(WORLD_PID_PATH);
+        unlink(worldPidPath);
         exit(1);
     }
 
@@ -200,7 +201,7 @@ int main(int argc, char *argv[])
 
     /* Delete created files */
     unlink(fifoPath);
-    unlink(WORLD_PID_PATH);
+    unlink(worldPidPath);
 
     return 0;
 }
