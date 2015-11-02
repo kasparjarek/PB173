@@ -7,9 +7,6 @@
 #include <map>
 #include "tank.h"
 
-using namespace std;
-
-
 class World
 {
 public:
@@ -48,7 +45,7 @@ private:
     const char *const redTankPath;
     unsigned int roundCount;
 
-    map<int, map<int, Tank*> > tanks;   // row, column
+    std::map<int, std::map<int, Tank*> > tanks;   // row, column
 
 
     /**
