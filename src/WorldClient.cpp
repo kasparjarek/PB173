@@ -1,5 +1,19 @@
 #include "WorldClient.h"
 
+#include <stdio.h>
+#include <unistd.h>
+#include <fstream>
+#include <sys/types.h>
+#include <sys/syslog.h>
+#include <signal.h>
+#include <stdexcept>
+#include <fcntl.h>
+#include <ncurses.h>
+#include <iostream>
+#include <string.h>
+#include <getopt.h>
+#include <ncurses.h>
+
 using namespace std;
 
 const struct option LONG_ARGS[] = {
