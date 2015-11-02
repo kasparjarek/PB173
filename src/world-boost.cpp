@@ -10,21 +10,19 @@ using namespace std;
 extern char *optarg;
 extern int optind;
 
-const char *ARGS = "hdp";
+const char *ARGS = "hdp:";
 const struct option LONG_ARGS[] = {
     {"help", no_argument, NULL, 'h'},
-    {"area-size", required_argument, NULL, 'a'},
-    {"green-tanks", required_argument, NULL, 'g'},
-    {"red-tanks", required_argument, NULL, 'r'},
-    {"green-tank", required_argument, NULL, 'i'},
-    {"red-tank", required_argument, NULL, 'j'},
+    {"area-size", required_argument, NULL, 0},
+    {"green-tanks", required_argument, NULL, 0},
+    {"red-tanks", required_argument, NULL, 0},
+    {"green-tank", required_argument, NULL, 0},
+    {"red-tank", required_argument, NULL, 0},
     {"daemonize", no_argument, NULL, 'd'},
     {"pipe", required_argument, NULL, 'p'},
-    {"round-time", required_argument, NULL, 't'},
+    {"round-time", required_argument, NULL, 0},
     {0, 0, 0, 0}
 };
-
-const char *WORLD_PID_PATH = "/var/run/world.pid";
 
 void usage()
 {
@@ -58,6 +56,7 @@ void usage()
 volatile bool done = false;
 volatile bool restart = false;
 
+/* Signal handlers */
 static void termhdl(int signo)
 {
     if (signo != SIGQUIT && signo != SIGTERM && signo != SIGINT)
@@ -74,20 +73,24 @@ static void resthdl(int signo)
         restart = true;
 }
 
+/* Main */
 int main(int argc, char *argv[])
 {
     /* Check if there is another instance of world running */
-    int wpfd;
-    if ((wpfd = open(WORLD_PID_PATH, O_RDWR)) == -1) {
-        syslog(LOG_ERR, "cannot open %s: %s", WORLD_PID_PATH, strerror(errno));
-        exit(1);
+    char *worldPidPath = "/var/run/world.pid";
+    FILE *worldPid;
+    if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
+        worldPidPath = "world.pid";
+        if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
+            syslog(LOG_ERR, "cannot open %s: %s", worldPidPath, strerror(errno));
+            exit(1);
+        }
     }
 
     pid_t savedPid;
-    if (read(wpfd, &savedPid, sizeof(pid_t)) == 0) {
-        pid_t myPid = getpid();
-        write(wpfd, &myPid, sizeof(pid_t));
-        close(wpfd);
+    if (fscanf(worldPid, "%d", &savedPid) == EOF) {
+        fprintf(worldPid, "%d", getpid());
+        fclose(worldPid);
     } else {
         if (savedPid != getpid()) {
             syslog(LOG_INFO, "world pid %d is already running", savedPid);
@@ -95,7 +98,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    char opt = 0;
+    int opt = 0;
+    int optindex;
 
     int areaX = -1;
     int areaY = -1;
@@ -108,52 +112,63 @@ int main(int argc, char *argv[])
     char *greenTankPath;
 
     /* Process arguments */
-    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, &optindex)) != -1) {
         switch (opt) {
+        case 0: // longopts only
+            switch(optindex) {
+            case 1: // --area-size
+                areaX = atoi(optarg);
+                areaY = atoi(argv[optind++]);
+                break;
+            case 2: // --green-tanks
+                greenCount = atoi(optarg);
+                break;
+            case 3: // --red-tanks
+                redCount = atoi(optarg);
+                break;
+            case 4: // --green-tank
+                greenTankPath = optarg;
+                break;
+            case 5: // --red-tank
+                redTankPath = optarg;
+                break;
+            case 8: // --round-time
+                roundTime = atoi(optarg);
+                break;
+            default:
+                break;
+            }
+            break;
+
         case 'h':   // --help
             usage();
             return 0;
-        case 'a':   // --area-size
-            areaX = atoi(optarg);
-            areaY = atoi(argv[optind++]);
-            break;
-        case 'g':   // --green-tanks
-            greenCount = atoi(optarg);
-            break;
-        case 'r':   // --red-tanks
-            redCount = atoi(optarg);
-            break;
-        case 'i':   // --green-tank
-            greenTankPath = optarg;
-            break;
-        case 'j':   // --red-tank
-            redTankPath = optarg;
-            break;
         case 'd':   // --daemonize
             if (daemon(1, 0) != 0) {
                 syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
+                unlink(worldPidPath);
                 exit(1);
             }
             openlog(NULL, 0, LOG_DAEMON);
             break;
         case 'p':   // --pipe
             fifoPath = optarg;
-            mkfifo(fifoPath, S_IRUSR | S_IWUSR);
-            if ((namedPipe = open(fifoPath, O_WRONLY)) == -1) {
-                syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
-                exit(1);
-            }
-            break;
-        case 't':   // --round-time
-            roundTime = atoi(optarg);
             break;
         default:
             usage();
+            unlink(worldPidPath);
             exit(1);
         }
     }
 
     // TODO: do we have all the necessary arguments?
+
+    mkfifo(fifoPath, S_IRUSR | S_IWUSR);
+    if ((namedPipe = open(fifoPath, O_WRONLY)) == -1) {
+        syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
+        unlink(worldPidPath);
+        exit(1);
+    }
 
     /* Set signal actions */
     struct sigaction termsa;
@@ -186,7 +201,7 @@ int main(int argc, char *argv[])
 
     /* Delete created files */
     unlink(fifoPath);
-    unlink(WORLD_PID_PATH);
+    unlink(worldPidPath);
 
     return 0;
 }
