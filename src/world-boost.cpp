@@ -7,9 +7,6 @@
 
 using namespace std;
 
-extern char *optarg;
-extern int optind;
-
 const char *ARGS = "hdp:";
 const struct option LONG_ARGS[] = {
     {"help", no_argument, NULL, 'h'},
@@ -24,6 +21,7 @@ const struct option LONG_ARGS[] = {
     {0, 0, 0, 0}
 };
 
+/* Help screen */
 void usage()
 {
     cout << "Usage:" << endl;
@@ -53,10 +51,10 @@ void usage()
     cout << "\t\t" << "shows this help" << endl << endl;
 }
 
+/* Signal handlers */
 volatile bool done = false;
 volatile bool restart = false;
 
-/* Signal handlers */
 static void termhdl(int signo)
 {
     if (signo != SIGQUIT && signo != SIGTERM && signo != SIGINT)
@@ -73,9 +71,106 @@ static void resthdl(int signo)
         restart = true;
 }
 
+/* Option parsing */
+struct worldOptions {
+    int	areaX;
+    int areaY;
+    int greenCount;
+    int redCount;
+    string greenPath;
+    string redPath;
+    bool daemonize;
+    string pipePath;
+    useconds_t roundTime;
+};
+
+bool checkOptions(struct worldOptions & options)
+{
+    // TODO: check if options are valid
+    return true;
+}
+
+bool parseOptions(int argc, char **argv, struct worldOptions & options)
+{
+    int opt;
+    int optindex;
+
+    bool area = false;
+    bool gcnt = false;
+    bool rcnt = false;
+    bool gpth = false;
+    bool rpth = false;
+    bool rndt = false;
+    bool ppth = false;
+
+    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, &optindex)) != -1) {
+        switch (opt) {
+        case 0: // longopts only
+            switch (optindex) {
+            case 1: // --area-size
+                options.areaX = atoi(argv[optind-1]);
+                options.areaY = atoi(argv[optind++]);
+                area = true;
+                break;
+            case 2: // --green-tanks
+                options.greenCount = atoi(optarg);
+                gcnt = true;
+                break;
+            case 3: // --red-tanks
+                options.redCount = atoi(optarg);
+                rcnt = true;
+                break;
+            case 4: // --green-tank
+                options.greenPath = optarg;
+                gpth = true;
+                break;
+            case 5: // --red-tank
+                options.redPath = optarg;
+                rpth = true;
+                break;
+            case 8: // --round-time
+                options.roundTime = atoi(optarg);
+                rndt = true;
+            default:
+                break;
+            }
+            break;
+
+        case 'h':   // --help
+            usage();
+            exit(0);
+        case 'd':   // --daemonize
+            options.daemonize = true;
+            break;
+        case 'p':   // --pipe
+            options.pipePath = optarg;
+            ppth = true;
+            break;
+        default:
+            usage();
+            exit(1);
+        }
+    }
+
+    if (!area || !gcnt || !rcnt || !gpth || !rpth || !rndt || !ppth) {
+        cerr << "some required options were not provided" << endl;
+        exit(1);
+    }
+
+    return checkOptions(options);
+}
+
 /* Main */
 int main(int argc, char *argv[])
 {
+    /* Parse options */
+    struct worldOptions options;
+
+    if (!parseOptions(argc, argv, options)) {
+        cerr << "invalid options provided" << endl;
+        exit(1);
+    }
+
     /* Check if there is another instance of world running */
     char *worldPidPath = "/var/run/world.pid";
     FILE *worldPid;
@@ -94,79 +189,28 @@ int main(int argc, char *argv[])
     } else {
         if (savedPid != getpid()) {
             syslog(LOG_INFO, "world pid %d is already running", savedPid);
+            fclose(worldPid);
             exit(0);
         }
     }
 
-    int opt = 0;
-    int optindex;
-
-    int areaX = -1;
-    int areaY = -1;
-    int redCount = -1;
-    int greenCount = -1;
-    char *fifoPath;
-    int namedPipe;
-    useconds_t roundTime = 0;
-    char *redTankPath;
-    char *greenTankPath;
-
-    /* Process arguments */
-    while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, &optindex)) != -1) {
-        switch (opt) {
-        case 0: // longopts only
-            switch(optindex) {
-            case 1: // --area-size
-                areaX = atoi(optarg);
-                areaY = atoi(argv[optind++]);
-                break;
-            case 2: // --green-tanks
-                greenCount = atoi(optarg);
-                break;
-            case 3: // --red-tanks
-                redCount = atoi(optarg);
-                break;
-            case 4: // --green-tank
-                greenTankPath = optarg;
-                break;
-            case 5: // --red-tank
-                redTankPath = optarg;
-                break;
-            case 8: // --round-time
-                roundTime = atoi(optarg);
-                break;
-            default:
-                break;
-            }
-            break;
-
-        case 'h':   // --help
-            usage();
-            return 0;
-        case 'd':   // --daemonize
-            if (daemon(1, 0) != 0) {
-                syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
-                unlink(worldPidPath);
-                exit(1);
-            }
-            openlog(NULL, 0, LOG_DAEMON);
-            break;
-        case 'p':   // --pipe
-            fifoPath = optarg;
-            break;
-        default:
-            usage();
-            unlink(worldPidPath);
+    /* Daemonize */
+    if (options.daemonize) {
+        if (daemon(1, 0) != 0) {
+            syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
+            unlink(worldPidPath); //<< should go to try-catch block
             exit(1);
         }
+        openlog(NULL, 0, LOG_DAEMON);
     }
 
-    // TODO: do we have all the necessary arguments?
+    /* Create Pipe */
+    FILE *namedPipe;
 
-    mkfifo(fifoPath, S_IRUSR | S_IWUSR);
-    if ((namedPipe = open(fifoPath, O_WRONLY)) == -1) {
+    mkfifo(options.pipePath, S_IRUSR | S_IWUSR);
+    if ((namedPipe = open(options.pipePath, O_WRONLY)) == -1) {
         syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
-        unlink(worldPidPath);
+        unlink(worldPidPath); //<< should go to try-catch block
         exit(1);
     }
 
@@ -186,7 +230,9 @@ int main(int argc, char *argv[])
     sigaction(SIGUSR1, &restsa, NULL);
 
     /* Run game */
-    World world(areaX, areaY, redCount, greenCount, namedPipe, roundTime, greenTankPath, redTankPath);
+    World world(options.areaX, options.areaY, options.redCount,
+                options.greenCount, namedPipe, options.roundTime,
+                options.greenPath, options.redTankPath);
 
     world.init();
 
@@ -200,7 +246,7 @@ int main(int argc, char *argv[])
     }
 
     /* Delete created files */
-    unlink(fifoPath);
+    unlink(pipePath);
     unlink(worldPidPath);
 
     return 0;
