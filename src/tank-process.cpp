@@ -1,26 +1,32 @@
+/* Rename file to tank-thread maybe? */
+
 #include <ctime>
 #include <csignal>
 #include <cstdlib>
 #include <getopt.h>
+#include <pthread.h>
 #include <syslog.h>
 #include <unistd.h>
 #include "tank.h"
 
 using namespace std;
 
-volatile bool action = false;
-
-void acthdl(int signo)
+void sigHandler(int signo)
 {
-    if (signo != SIGUSR2)
+    if (signo != SIGUSR2) {
         syslog(LOG_ERR, "Error: invalid signal");
-    else
-        action = true;
+    } else {
+        const bool t = true;
+        pthread_setspecific(tankAction, &t);
+    }
 }
 
-void doAction()
+/**
+ * @brief doAction generates an action and writes it to the pipe
+ * @param writePipe
+ */
+void doAction(int writePipe)
 {
-
     char buf[2];
 
     enum Action action = static_cast<enum Action>((rand() % 8)  + 1);
@@ -53,26 +59,37 @@ void doAction()
         ;
     }
 
-    write(STDOUT_FILENO, buf, 2);
+    write(writePipe, buf, 2);
 }
 
 
-int main(int argc, char *argv[])
+void *tankThread(void *arg)
 {
-    srand(getpid());
+    /* Block signals intended for world */
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGUSR1);
+    pthread_sigmask(SIG_BLOCK, &mask, nullptr);
 
+    srand(pthread_self());
+    int writePipe = *(int*)arg;
+
+    /* Set signal handlers */
     struct sigaction act;
     sigemptyset(&act.sa_mask);
     act.sa_flags = 0;
-    act.sa_handler = acthdl;
+    act.sa_handler = sigHandler;
 
     sigaction(SIGUSR2, &act, NULL);
 
+    /* Wait for signal from world and then do some action */
     while (true) {
         pause();
-        if (action) {
-            doAction();
-            action = false;
+        if (*(bool*)pthread_getspecific(tankAction)) {
+            doAction(writePipe);
+            const bool f = false;
+            pthread_setspecific(tankAction, &f);
         }
     }
 

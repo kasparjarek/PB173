@@ -18,27 +18,13 @@ Tank::Tank(const Team &team, const char *const tankBinaryPath)
         throw std::runtime_error("Creating pipe failed");
     }
 
-    pid_t tankPid = fork();
-    if (tankPid == -1) {
-        syslog(LOG_ERR, "Creating new tank failed: %s", strerror(errno));
-        throw std::runtime_error("Fork failed");
-    }
-    // Child
-    else if (tankPid == 0) {
-        close(pfd[0]);
-        close(STDOUT_FILENO);
-        dup2(pfd[1], STDOUT_FILENO);
-
-        if (execl(tankBinaryPath, tankBinaryPath, NULL) == -1) {
-            syslog(LOG_ERR, "execl() failed: %s", strerror(errno));
-        }
-        exit(-1);
+    int err;
+    if ((err = pthread_create(&thread, nullptr, tankThread, (void*) &pfd[1])) != 0) {
+        syslog(LOG_ERR, "creating tank thread failed: %s", strerror(err));
+        throw std::runtime_error("Creating tank thread failed");
     }
 
-    // Parent
-    close(pfd[1]);
     readPipe = pfd[0];
-    pid = tankPid;
 }
 
 bool Tank::isDestroyed() const
@@ -53,8 +39,8 @@ void Tank::markAsDestroyed()
 
 int Tank::fetchAction()
 {
-    if (kill(pid, SIGUSR2) != 0) {
-        syslog(LOG_WARNING, "Sending signal to tank process failed - kill(%d, %d): %s", pid, SIGUSR2, strerror(errno));
+    if (pthread_kill(thread, SIGUSR2) != 0) {
+        syslog(LOG_WARNING, "Sending signal to tank thread failed - kill(%d, %d): %s", pid, SIGUSR2, strerror(errno));
         action = UNDEFINED;
         return -1;
     }
@@ -127,7 +113,8 @@ const Team &Tank::getTeam() const
 {
     return team;
 }
-pid_t Tank::getPid() const
+
+pid_t Tank::getThread() const
 {
-    return pid;
+    return (pid_t) thread;
 }

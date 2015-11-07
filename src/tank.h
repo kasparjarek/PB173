@@ -1,12 +1,15 @@
 #ifndef INTERNET_OF_TANKS_TANK_H
 #define INTERNET_OF_TANKS_TANK_H
 
-#include <utility>
 #include <cerrno>
 #include <cstring>
+#include <pthread.h>
 #include <sys/types.h>
 #include <signal.h>
 #include <syslog.h>
+#include <utility>
+
+pthread_key_t tankAction;
 
 enum Team
 {
@@ -25,13 +28,14 @@ class Tank
 {
 public:
 
-    Tank(const Team &team, const char *const tankBinaryPath);
+    Tank(const Team &team, const char *const tankBinaryPath /* UNUSED */);
 
     virtual ~Tank()
     {
         close(readPipe);
-        if (kill(pid, SIGINT) != 0) {
-            syslog(LOG_WARNING, "Trying to kill tank process failed - kill(%d, %d): %s", pid, SIGINT, strerror(errno));
+        int err;
+        if ((err = pthread_kill(thread, SIGTERM) != 0)) {
+            syslog(LOG_WARNING, "Trying to kill tank thread failed - kill(%d, %d): %s", (pid_t) thread, SIGTERM, strerror(err));
         }
     }
 
@@ -62,7 +66,7 @@ public:
 private:
     Team team;
     const char *const tankBinaryPath;
-    pid_t pid;
+    pthread_t thread;
     bool destroyed;
     int readPipe;
     Action action;
