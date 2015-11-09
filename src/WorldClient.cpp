@@ -1,18 +1,13 @@
 #include "WorldClient.h"
 
-#include <stdio.h>
 #include <unistd.h>
-#include <fstream>
-#include <sys/types.h>
 #include <sys/syslog.h>
 #include <signal.h>
 #include <stdexcept>
-#include <fcntl.h>
-#include <ncurses.h>
-#include <iostream>
-#include <string.h>
 #include <getopt.h>
-#include <ncurses.h>
+
+#include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -31,19 +26,27 @@ void usage(){
 
 WorldClient::WorldClient(char *path): y(0),
                                       x(0),
-                                      destroyed_green_tanks(0),
-                                      destroyed_red_tanks(0),
-                                      green_tanks(0),
-                                      red_tanks(0) {
-    //open pipe to world
-    int pipe_input = open(path, O_NONBLOCK | O_RDONLY);
-    if(pipe_input == -1){
-        syslog(LOG_ERR, "couldn't open pipe to world");
-        throw runtime_error("couldn't open pipe to world");
+                                      destroyedGreenTanks(0),
+                                      destroyedRedTanks(0),
+                                      greenTanks(0),
+                                      redTanks(0),
+                                      gameboard(nullptr){
+//    open pipe to world
+    char coordX[16];
+    char coordY[16];
+    ifs.open (path, ifstream::in);
+    if(!ifs.is_open() || !ifs.good()){
+        syslog(LOG_ERR, "couldn't read x,y from pipe");
+        throw runtime_error("couldn't read x,y from pipe");
     }
-    char buffer[512];
-    read(pipe_input, buffer, 512);
-    sscanf(buffer, "%d, %d", &x, &y);
+//load size of gameboard
+    ifs.getline(coordX, 16, ',');
+    ifs.getline(coordY, 16, ',');
+    x = atoi(coordX);
+    y = atoi(coordY);
+    if(x == 0 || y == 0){
+        syslog(LOG_WARNING, "x or y is zero, possible error in reading file");
+    }
 }
 
 int WorldClient::initGameboard() {
@@ -52,57 +55,54 @@ int WorldClient::initGameboard() {
     cbreak();
     keypad(stdscr, TRUE);
     start_color();
+    noecho();
+
+    //prepare color pairs
     init_pair(1, COLOR_WHITE, COLOR_BLACK);
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_RED, COLOR_BLACK);
-    attron(COLOR_PAIR(1));
-    refresh();
+
+    gameboard = newwin(y+10, (x > x+2), 0, 0);
+    wattron(gameboard, COLOR_PAIR(1));
 
     //print game frame
     for(int curY = 0; curY <= y+1; curY++){
         for(int curX  = 0; curX <= x+1; curX++){
             if(curX == 0 || curX == x+1 || curY == 0 || curY == y+1){
-                mvaddch(curY, curX, '$');
-                move(0,0);
+                mvwaddch(gameboard, curY, curX, '$');
+                wmove(gameboard, 0,0);
             }
         }
     }
 
     //print statistics
-    mvaddstr(y+3, 0, "Destroyed tanks: ");
-    attron(COLOR_PAIR(2));
-    mvaddch(y+4, 0, '0');
+    wmove(gameboard, y+3, 0);
+    waddstr(gameboard, "Destroyed tanks: ");
+    wattron(gameboard, COLOR_PAIR(2));
+    wrefresh(gameboard);
+    wmove(gameboard, y+4, 0);
+    waddch(gameboard, '0');
 
-    attron(COLOR_PAIR(3));
-    mvaddch(y+5, 0, '0');
-    refresh();
+    wattron(gameboard, COLOR_PAIR(3));
+    wmove(gameboard, y+5, 0);
+    waddch(gameboard, '0');
+    wrefresh(gameboard);
     return 0;
 }
 
 int WorldClient::terminate() {
+    ifs.close();
+    wrefresh(gameboard);
+    delwin(gameboard);
     endwin();
     exit(0);
 }
 
-int WorldClient::getBoardDataStart(char * buffer){
-    char * pos = strtok(buffer, ",");
-    pos = strtok(NULL, ",");
-    pos = strtok(NULL, ",");
-    if(pos == nullptr){
-        syslog(LOG_ERR, "couldn't read coord data from pipe");
-        return -1;
-    }
-    coord_offset = (int) (pos-buffer);
-    return 0;
-}
-
-
-
-//send sigint to world process
-int WorldClient::terminateWorld(int signal) {
+//send signal to world process
+int WorldClient::signalWorld(int signal) {
     pid_t pid = 0;
-    ifstream ifs (WORLD_PATH);
-    ifs >> pid;
+    ifstream s(WORLD_PATH);
+    s >> pid;
     if(pid){
         kill(pid, signal);
         return 0;
@@ -111,11 +111,29 @@ int WorldClient::terminateWorld(int signal) {
     return -1;
 }
 
-int main(int argc, char ** argv){
+char WorldClient::readFieldFromPipe() {
+    char field[2];
+    field[0] = -1;
+    ifs.getline(field, 2, ',');
+    if(field[0] == -1){
+        syslog(LOG_WARNING, "couldn't read field from pipe");
+    }
+    if(field[0] == 'r'){
+        redTanks++;
 
+    }
+    if(field[0] == 'g'){
+        greenTanks++;
+    }
+    return field[0];
+}
+
+int main(int argc, char ** argv)
+{
+    //handle main arguments
     char * pipe = NULL;
     char opt;
-    while ((opt = getopt_long(argc, argv, "ph", LONG_ARGS, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "p:h", LONG_ARGS, NULL)) != -1) {
         switch (opt) {
             case 'p': //pipe
                 pipe = optarg;
@@ -132,42 +150,74 @@ int main(int argc, char ** argv){
     WorldClient wc (pipe);
     wc.initGameboard();
 
-    char input;
-    timeout(0);
-    while((input = getch()) != 'q'){
-        switch (input){
-            case 'x':
-                wc.terminateWorld(SIGINT);
+    int input = 0;
+    nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
+
+    int reds = 0; //count of red tanks in field
+    int greens = 0; //count of green tanks in field
+    while(input != 'q')
+    {
+        char tank;
+        int fieldCounter = 0;
+        //reload full gameboard from pipe
+        while(fieldCounter < wc.getX()*wc.getY())
+        {
+            tank = wc.readFieldFromPipe();
+            if(tank == -1 || !wc.getIfs().good()){
                 break;
-            case 'r':
-                wc.terminateWorld(SIGUSR1);
-                break;
-            default:
-                break;
-        }
-        char buffer[wc.getX()*wc.getY()*2];
-        if((pread(wc.getPipe_input(), buffer, (size_t) (wc.getX()*wc.getY()*2), (int) wc.getCoord_offset())) == -1){
-            syslog(LOG_ERR, "couldn't read pipe data");
-            return -1;
-        }
-        for(int i = 0; i < wc.getY()*wc.getX(); i++){
-            char tank;
-            sscanf(buffer, ",%c", &tank);
+            }
             switch (tank) {
                 case '0':
-                    mvaddch(i / wc.getX(), i % wc.getX(), ' ');
+                    mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
+                    fieldCounter++;
                     break;
                 case 'g':
-                    attron(COLOR_PAIR(2));
-                    mvaddch(i / wc.getX(), i % wc.getX(), 'X');
+                    wattron(wc.getGameboard(), COLOR_PAIR(2));
+                    mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
+                    fieldCounter++;
+                    wc.setGreenTanks(wc.getGreenTanks() + 1);
                     break;
                 case 'r':
-                    attron(COLOR_PAIR(3));
-                    mvaddch(i / wc.getX(), i % wc.getX(), 'X');
+                    wattron(wc.getGameboard(), COLOR_PAIR(3));
+                    mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
+                    fieldCounter++;
+                    wc.setRedTanks(wc.getRedTanks() + 1);
                     break;
-                default:
-                    break;
+                default:break;
             }
+        }
+
+        //print statistics
+        wc.setDestroyedGreenTanks(wc.getDestroyedGreenTanks() + (greens - wc.getGreenTanks()));
+        if(wc.getDestroyedGreenTanks() < 0)
+            wc.setDestroyedGreenTanks(0);
+        wattron(wc.getGameboard(), COLOR_PAIR(2));
+        mvwaddstr(wc.getGameboard(), wc.getY()+4, 0, to_string(wc.getDestroyedGreenTanks()).c_str());
+
+        wc.setDestroyedRedTanks(wc.getDestroyedRedTanks() + (reds - wc.getRedTanks()));
+        if(wc.getDestroyedRedTanks() < 0)
+            wc.setDestroyedRedTanks(0);
+        wattron(wc.getGameboard(), COLOR_PAIR(3));
+        mvwaddstr(wc.getGameboard(), wc.getY()+5, 0, to_string(wc.getDestroyedRedTanks()).c_str());
+
+        greens = wc.getGreenTanks();
+        reds = wc.getRedTanks();
+        wc.setGreenTanks(0);
+        wc.setRedTanks(0);
+
+        //check, if there is input waiting
+        input = wgetch(wc.getGameboard());
+        switch (input){
+            case 'q':
+                wc.terminate();
+            case 'x':
+                wc.signalWorld(SIGINT);
+                break;
+            case 'r':
+                wc.signalWorld(SIGUSR1);
+                break;
+            default: //in case of none or unknown input
+                break;
         }
     }
     wc.terminate();
