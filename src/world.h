@@ -74,13 +74,11 @@ private:
      */
     void clearTanks();
 
-    void logTankHit(pid_t aggressorPid, int aggressorX, int aggressorY,
-                    pid_t victimPid, int victimX, int victimY);
+    void logTankHit(int aggressorX, int aggressorY, int victimX, int victimY);
 
-    void logTankRolledOffTheMap(pid_t pid, int x, int y);
+    void logTankRolledOffTheMap(int x, int y);
 
-    void logTankCrash(pid_t aggressorPid, int aggressorX, int aggressorY,
-                      pid_t victimPid, int victimX, int victimY);
+    void logTankCrash(int aggressorX, int aggressorY, int victimX, int victimY);
 };
 
 #endif //INTERNET_OF_TANKS_WORLD_H

@@ -8,8 +8,8 @@
 #include <signal.h>
 #include <syslog.h>
 #include <utility>
-
-pthread_key_t tankAction;
+#include <sys/semaphore.h>
+#include <thread>
 
 enum Team
 {
@@ -32,11 +32,11 @@ public:
 
     virtual ~Tank()
     {
-        close(readPipe);
-        int err;
-        if ((err = pthread_kill(thread, SIGTERM) != 0)) {
-            syslog(LOG_WARNING, "Trying to kill tank thread failed - kill(%d, %d): %s", (pid_t) thread, SIGTERM, strerror(err));
-        }
+        threadDone = true;
+        thread->detach();
+        delete thread;
+
+        sem_destroy(&actionSem);
     }
 
     /**
@@ -61,15 +61,26 @@ public:
 
     const Team & getTeam() const;
 
-    pid_t getPid() const;
+    static void requireActionsFromAllTanks();
+
 
 private:
+
+    static std::condition_variable actionCV;
+    static std::mutex actionMtx;
+
     Team team;
     const char *const tankBinaryPath;
-    pthread_t thread;
     bool destroyed;
-    int readPipe;
+    char actionMsg[2];
+    sem_t actionSem;
     Action action;
+
+    std::thread *thread;
+    std::atomic_bool threadDone;
+
+    void threadFnc();
+    void doAction();
 };
 
 

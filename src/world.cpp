@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <sys/errno.h>
+#include <system_error>
 #include "world.h"
 #include "tank.h"
 
@@ -60,13 +61,7 @@ void World::clearTanks()
 {
     for (auto row : tanks) {
         for (auto tank : row.second) {
-            pthread_t thread = tank.second->getThread();
             delete tank.second;
-            int err;
-            if ((err = pthread_join(thread, NULL)) != 0) {
-                syslog(LOG_ERR, "pthread_join failed: %s", strerror(err));
-                throw runtime_error("pthread_join failed");
-            }
         }
     }
 
@@ -141,6 +136,8 @@ int World::printGameBoard()
 
 int World::performActions()
 {
+    Tank::requireActionsFromAllTanks();
+
     // Handle FIRE action
     for (auto rowIter = tanks.begin(); rowIter != tanks.end(); ++rowIter) {
         for (auto colIter = rowIter->second.begin(); colIter != rowIter->second.end(); ++colIter) {
@@ -155,8 +152,7 @@ int World::performActions()
                         while (iterUp != rowIter) {
                             auto tankIterUp = iterUp->second.find(colIter->first);
                             if (tankIterUp != iterUp->second.end()) {
-                                logTankHit(colIter->second->getThread(), colIter->first, rowIter->first,
-                                           tankIterUp->second->getThread(), colIter->first, iterUp->first);
+                                logTankHit(colIter->first, rowIter->first, colIter->first, iterUp->first);
                                 tankIterUp->second->markAsDestroyed();
                             }
                             iterUp++;
@@ -169,8 +165,7 @@ int World::performActions()
                         while (++iterDown != tanks.end()) {
                             auto tankIterDown = iterDown->second.find(colIter->first);
                             if (tankIterDown != iterDown->second.end()) {
-                                logTankHit(colIter->second->getThread(), colIter->first, rowIter->first,
-                                           tankIterDown->second->getThread(), colIter->first, iterDown->first);
+                                logTankHit(colIter->first, rowIter->first, colIter->first, iterDown->first);
                                 tankIterDown->second->markAsDestroyed();
                             }
                         }
@@ -180,8 +175,7 @@ int World::performActions()
                     case FIRE_RIGHT: {
                         auto iterRight = colIter;
                         while (++iterRight != rowIter->second.end()) {
-                            logTankHit(colIter->second->getThread(), colIter->first, rowIter->first,
-                                       iterRight->second->getThread(), iterRight->first, rowIter->first);
+                            logTankHit(colIter->first, rowIter->first, iterRight->first, rowIter->first);
                             iterRight->second->markAsDestroyed();
                         }
                         break;
@@ -190,8 +184,7 @@ int World::performActions()
                     case FIRE_LEFT: {
                         auto iterLeft = rowIter->second.begin();
                         while (iterLeft != colIter) {
-                            logTankHit(colIter->second->getThread(), colIter->first, rowIter->first,
-                                       iterLeft->second->getThread(), iterLeft->first, rowIter->first);
+                            logTankHit(colIter->first, rowIter->first, iterLeft->first, rowIter->first);
                             iterLeft->second->markAsDestroyed();
                             iterLeft++;
                         }
@@ -224,7 +217,7 @@ int World::performActions()
                 case MOVE_UP:
                     // Am I at the end of map?
                     if (rowIter->first == 0) {
-                        logTankRolledOffTheMap(tank->getThread(), colIter->first, rowIter->first);
+                        logTankRolledOffTheMap(colIter->first, rowIter->first);
                     }
                     else {
                         // No tank above, Move up
@@ -240,8 +233,7 @@ int World::performActions()
 
                         // Tank crash
                         if (rowIter->first - 1 == closestUpRow->first && closestUp != closestUpRow->second.end()) {
-                            logTankCrash(tank->getThread(), colIter->first, rowIter->first,
-                                         closestUp->second->getThread(), colIter->first, closestUpRow->first);
+                            logTankCrash(colIter->first, rowIter->first, colIter->first, closestUpRow->first);
                             delete closestUp->second;
                             closestUpRow->second.erase(closestUp);
                         }
@@ -264,7 +256,7 @@ int World::performActions()
                 case MOVE_DOWN:
                     // Am I at the end of map?
                     if (rowIter->first + 1 >= areaY) {
-                        logTankRolledOffTheMap(tank->getThread(), colIter->first, rowIter->first);
+                        logTankRolledOffTheMap(colIter->first, rowIter->first);
                     }
                     else {
                         auto closestDownRow = rowIter;
@@ -280,8 +272,7 @@ int World::performActions()
 
                             // Crash
                             if (closestDown != closestDownRow->second.end()) {
-                                logTankCrash(tank->getThread(), colIter->first, rowIter->first,
-                                             closestDown->second->getThread(), colIter->first, closestDownRow->first);
+                                logTankCrash(colIter->first, rowIter->first, colIter->first, closestDownRow->first);
                                 delete closestDown->second;
                                 closestDownRow->second.erase(closestDown);
                             }
@@ -299,7 +290,7 @@ int World::performActions()
                 case MOVE_RIGHT:
                     // Am I at the end of map?
                     if (colIter->first + 1 >= areaX) {
-                        logTankRolledOffTheMap(tank->getThread(), colIter->first, rowIter->first);
+                        logTankRolledOffTheMap(colIter->first, rowIter->first);
                     }
                     else {
                         auto closestRight = colIter;
@@ -307,8 +298,7 @@ int World::performActions()
 
                         // Tank crash
                         if (closestRight != rowIter->second.end() && colIter->first + 1 == closestRight->first) {
-                            logTankCrash(tank->getThread(), colIter->first, rowIter->first,
-                                         closestRight->second->getThread(), closestRight->first, rowIter->first);
+                            logTankCrash(colIter->first, rowIter->first, closestRight->first, rowIter->first);
                             delete closestRight->second;
                             rowIter->second.erase(closestRight);
                         }
@@ -326,7 +316,7 @@ int World::performActions()
                 case MOVE_LEFT:
                     // Am I at the end of map?
                     if (colIter->first == 0) {
-                        logTankRolledOffTheMap(tank->getThread(), colIter->first, rowIter->first);
+                        logTankRolledOffTheMap(colIter->first, rowIter->first);
                     }
                     else {
                         auto closestLeft = colIter;
@@ -334,8 +324,7 @@ int World::performActions()
 
                         // Tank crash
                         if (colIter != rowIter->second.begin() && colIter->first - 1 == closestLeft->first) {
-                            logTankCrash(tank->getThread(), colIter->first, rowIter->first,
-                                         closestLeft->second->getThread(), closestLeft->first, rowIter->first);
+                            logTankCrash(colIter->first, rowIter->first, closestLeft->first, rowIter->first);
                             delete closestLeft->second;
                             rowIter->second.erase(closestLeft);
                         }
@@ -362,17 +351,17 @@ int World::performActions()
 
     return 0;
 }
-void World::logTankHit(pid_t aggressorPid, int aggressorX, int aggressorY, pid_t victimPid, int victimX, int victimY)
+void World::logTankHit(int aggressorX, int aggressorY, int victimX, int victimY)
 {
-    syslog(LOG_INFO, "Aggresor with pid %d at [%d,%d] destroy tank with pid %d on [%d,%d].",
-           aggressorPid, aggressorX, aggressorY, victimPid, victimX, victimY);
+    syslog(LOG_INFO, "Aggresor at [%d,%d] destroy tank at [%d,%d].",
+           aggressorX, aggressorY, victimX, victimY);
 }
-void World::logTankRolledOffTheMap(pid_t pid, int x, int y)
+void World::logTankRolledOffTheMap(int x, int y)
 {
-    syslog(LOG_INFO, "Tank with pid %d at [%d,%d] rolled off the map.", pid, x, y);
+    syslog(LOG_INFO, "Tank with at [%d,%d] rolled off the map.", x, y);
 }
-void World::logTankCrash(pid_t aggressorPid, int aggressorX, int aggressorY, pid_t victimPid, int victimX, int victimY)
+void World::logTankCrash(int aggressorX, int aggressorY, int victimX, int victimY)
 {
-    syslog(LOG_INFO, "Tank with pid %d at [%d,%d] crashed into tank with pid %d at [%d,%d].",
-           aggressorPid, aggressorX, aggressorY, victimPid, victimX, victimY);
+    syslog(LOG_INFO, "Tank at [%d,%d] crashed into tank at [%d,%d].",
+           aggressorX, aggressorY, victimX, victimY);
 }

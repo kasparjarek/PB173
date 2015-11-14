@@ -230,11 +230,10 @@ int main(int argc, char *argv[])
     sigaction(SIGUSR1, &restsa, NULL);
 
     /* Run game */
-    pthread_key_create(&tankAction, nullptr);
 
     World world(options.areaX, options.areaY, options.redCount,
                 options.greenCount, namedPipe, options.roundTime,
-                options.greenPath, options.redTankPath);
+                options.greenPath.c_str(), options.redPath.c_str());
 
     world.init();
 

@@ -5,26 +5,25 @@
 #include <stdexcept>
 #include <signal.h>
 #include <unistd.h>
+#include <thread>
 #include "tank.h"
 
 
 Tank::Tank(const Team &team, const char *const tankBinaryPath)
-    : team(team), tankBinaryPath(tankBinaryPath), destroyed(false), action(UNDEFINED)
+    : team(team), tankBinaryPath(tankBinaryPath), destroyed(false), action(UNDEFINED), threadDone(false)
 {
-    int pfd[2];
-
-    if (pipe(pfd) == -1) {
-        syslog(LOG_ERR, "pipe() failed: %s", strerror(errno));
-        throw std::runtime_error("Creating pipe failed");
+    if (sem_init(&actionSem, 0, 0) == -1) {
+        syslog(LOG_ERR, "sem_init() failed: %s", strerror(errno));
+        throw std::runtime_error("Creating semaphore failed");
     }
 
-    int err;
-    if ((err = pthread_create(&thread, nullptr, tankThread, (void*) &pfd[1])) != 0) {
-        syslog(LOG_ERR, "creating tank thread failed: %s", strerror(err));
-        throw std::runtime_error("Creating tank thread failed");
+    try {
+        thread = new std::thread(&Tank::threadFnc, this);
+    } catch (std::system_error error) {
+        syslog(LOG_ERR, "Creating tank thread failed: %s", error.what());
+        sem_destroy(&actionSem);
+        throw error;
     }
-
-    readPipe = pfd[0];
 }
 
 bool Tank::isDestroyed() const
@@ -39,24 +38,17 @@ void Tank::markAsDestroyed()
 
 int Tank::fetchAction()
 {
-    if (pthread_kill(thread, SIGUSR2) != 0) {
-        syslog(LOG_WARNING, "Sending signal to tank thread failed - kill(%d, %d): %s", pid, SIGUSR2, strerror(errno));
-        action = UNDEFINED;
-        return -1;
-    }
-
     // parse action from pipe
-    char buff[2];
-    if (read(readPipe, buff, 2) == -1) {
-        syslog(LOG_WARNING, "Reading from pipe failed - read(%d, buff, 2): %s", readPipe, strerror(errno));
+    if (sem_wait(&actionSem) == -1) {
+        syslog(LOG_WARNING, "sem_wait() failed: %s", strerror(errno));
         action = UNDEFINED;
         return -1;
     }
 
-    switch (buff[0]) {
+    switch (actionMsg[0]) {
         // Move
         case 'm':
-            switch (buff[1]) {
+            switch (actionMsg[1]) {
                 case 'u':
                     action = MOVE_UP;
                     break;
@@ -76,7 +68,7 @@ int Tank::fetchAction()
 
         // Fire
         case 'f':
-            switch (buff[1]) {
+            switch (actionMsg[1]) {
                 case 'u':
                     action = FIRE_UP;
                     break;
@@ -99,7 +91,7 @@ int Tank::fetchAction()
     }
 
     if (action == UNDEFINED) {
-        syslog(LOG_WARNING, "Read undefined action from pipe: '%c%c'", buff[0], buff[1]);
+        syslog(LOG_WARNING, "Read undefined action from array: '%c%c'", actionMsg[0], actionMsg[1]);
     }
     return 0;
 }
@@ -114,7 +106,60 @@ const Team &Tank::getTeam() const
     return team;
 }
 
-pid_t Tank::getThread() const
+void Tank::requireActionsFromAllTanks()
 {
-    return (pid_t) thread;
+    actionCV.notify_all();
+}
+
+void Tank::threadFnc()
+{
+    std::unique_lock<std::mutex> uniqueLock;
+
+    while(true) {
+        if (actionCV.wait_for(uniqueLock, std::chrono::seconds(4)) == std::cv_status::no_timeout) {
+            doAction();
+        }
+
+        if (threadDone) {
+            return;
+        }
+    }
+}
+
+void Tank::doAction()
+{
+    // TODO fix calling rand in thread (maybe rand_r can be solution)
+    enum Action action = static_cast<enum Action>((rand() % 8)  + 1);
+
+    switch (action) {
+        case MOVE_UP:
+            strncpy(actionMsg, "mu", 2);
+            break;
+        case MOVE_DOWN:
+            strncpy(actionMsg, "md", 2);
+            break;
+        case MOVE_RIGHT:
+            strncpy(actionMsg, "mr", 2);
+            break;
+        case MOVE_LEFT:
+            strncpy(actionMsg, "ml", 2);
+            break;
+        case FIRE_UP:
+            strncpy(actionMsg, "fu", 2);
+            break;
+        case FIRE_DOWN:
+            strncpy(actionMsg, "fd", 2);
+            break;
+        case FIRE_RIGHT:
+            strncpy(actionMsg, "fr", 2);
+            break;
+        case FIRE_LEFT:
+            strncpy(actionMsg, "fl", 2);
+        default:
+            ;
+    }
+
+    if (sem_post(&actionSem) != 0) {
+        syslog(LOG_WARNING, "sem_post() failed: %s", strerror(errno));
+    }
 }
