@@ -8,6 +8,8 @@
 #include <thread>
 #include "tank.h"
 
+std::condition_variable Tank::actionCV;
+std::mutex Tank::actionMtx;
 
 Tank::Tank(const Team &team, const char *const tankBinaryPath)
     : team(team), tankBinaryPath(tankBinaryPath), destroyed(false), action(UNDEFINED), threadDone(false)
@@ -108,12 +110,12 @@ const Team &Tank::getTeam() const
 
 void Tank::requireActionsFromAllTanks()
 {
-    actionCV.notify_all();
+    Tank::actionCV.notify_all();
 }
 
 void Tank::threadFnc()
 {
-    std::unique_lock<std::mutex> uniqueLock;
+    std::unique_lock<std::mutex> uniqueLock(actionMtx);
 
     while(true) {
         if (actionCV.wait_for(uniqueLock, std::chrono::seconds(4)) == std::cv_status::no_timeout) {
