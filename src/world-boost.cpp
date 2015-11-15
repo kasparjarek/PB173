@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
 #include "world.h"
 
 using namespace std;
@@ -172,7 +173,7 @@ int main(int argc, char *argv[])
     }
 
     /* Check if there is another instance of world running */
-    char *worldPidPath = "/var/run/world.pid";
+    char const *worldPidPath = "/var/run/world.pid";
     FILE *worldPid;
     if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
         worldPidPath = "world.pid";
@@ -205,10 +206,10 @@ int main(int argc, char *argv[])
     }
 
     /* Create Pipe */
-    FILE *namedPipe;
+    int namedPipe;
 
-    mkfifo(options.pipePath, S_IRUSR | S_IWUSR);
-    if ((namedPipe = open(options.pipePath, O_WRONLY)) == -1) {
+    mkfifo(options.pipePath.c_str(), S_IRUSR | S_IWUSR);
+    if ((namedPipe = open(options.pipePath.c_str(), O_WRONLY)) == -1) {
         syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
         unlink(worldPidPath); //<< should go to try-catch block
         exit(1);
@@ -247,7 +248,7 @@ int main(int argc, char *argv[])
     }
 
     /* Delete created files */
-    unlink(pipePath);
+    unlink(options.pipePath.c_str());
     unlink(worldPidPath);
 
     return 0;

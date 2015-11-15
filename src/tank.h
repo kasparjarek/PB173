@@ -1,6 +1,7 @@
 #ifndef INTERNET_OF_TANKS_TANK_H
 #define INTERNET_OF_TANKS_TANK_H
 
+#include <atomic>
 #include <cerrno>
 #include <cstring>
 #include <pthread.h>
@@ -8,8 +9,9 @@
 #include <signal.h>
 #include <syslog.h>
 #include <utility>
-#include <sys/semaphore.h>
+#include <semaphore.h>
 #include <thread>
+#include <condition_variable>
 
 enum Team
 {
