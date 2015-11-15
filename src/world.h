@@ -15,9 +15,7 @@ public:
           int redCount,
           int greenCount,
           int namedPipe,
-          useconds_t roundTime,
-          const char *const greenTankPath,
-          const char *const redTankPath);
+          useconds_t roundTime);
 
     virtual ~World()
     {
@@ -41,8 +39,6 @@ private:
     int greenCount;
     int namedPipe;
     useconds_t roundTime;
-    const char *const greenTankPath;
-    const char *const redTankPath;
     unsigned int roundCount;
 
     std::map<int, std::map<int, Tank*> > tanks;   // row, column

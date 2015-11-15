@@ -30,7 +30,7 @@ class Tank
 {
 public:
 
-    Tank(const Team &team, const char *const tankBinaryPath /* UNUSED */);
+    Tank(const Team &team);
 
     virtual ~Tank()
     {
@@ -72,7 +72,6 @@ private:
     static std::mutex actionMtx;
 
     Team team;
-    const char *const tankBinaryPath;
     bool destroyed;
     char actionMsg[2];
     sem_t actionSem;

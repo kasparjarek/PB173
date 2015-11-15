@@ -16,11 +16,9 @@ World::World(int areaX,
              int redCount,
              int greenCount,
              int namedPipe,
-             useconds_t roundTime,
-             const char *const greenTankPath,
-             const char *const redTankPath)
+             useconds_t roundTime)
     : areaX(areaX), areaY(areaY), redCount(redCount), greenCount(greenCount), namedPipe(namedPipe),
-      roundTime(roundTime), greenTankPath(greenTankPath), redTankPath(redTankPath), roundCount(0)
+      roundTime(roundTime), roundCount(0)
 {
     srand((unsigned int) time(NULL));
 
@@ -73,7 +71,7 @@ Tank *World::createTank(Team team)
     Tank *newTank = nullptr;
 
     try {
-        newTank = new Tank(team, (team == Team::GREEN) ? greenTankPath : redTankPath);
+        newTank = new Tank(team);
     }
     catch (runtime_error error) {
         syslog(LOG_ERR, "Creating new tank failed: %s", error.what());

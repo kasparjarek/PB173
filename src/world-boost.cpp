@@ -14,8 +14,6 @@ const struct option LONG_ARGS[] = {
     {"area-size", required_argument, NULL, 0},
     {"green-tanks", required_argument, NULL, 0},
     {"red-tanks", required_argument, NULL, 0},
-    {"green-tank", required_argument, NULL, 0},
-    {"red-tank", required_argument, NULL, 0},
     {"daemonize", no_argument, NULL, 'd'},
     {"pipe", required_argument, NULL, 'p'},
     {"round-time", required_argument, NULL, 0},
@@ -35,12 +33,6 @@ void usage()
 
     cout << "\t" << "--red-tanks <N>" << endl;
     cout << "\t\t" << "creates <N> red tanks" << endl;
-
-    cout << "\t" << "--green-tank <path>" << endl;
-    cout << "\t\t" << "path to green tank program" << endl;
-
-    cout << "\t" << "--red-tank <path>" << endl;
-    cout << "\t\t" << "path to red tank program" << endl;
 
     cout << "\t" << "-d, --daemonize" << endl;
     cout << "\t\t" << "run world as daemon" << endl;
@@ -78,8 +70,6 @@ struct worldOptions {
     int areaY;
     int greenCount;
     int redCount;
-    string greenPath;
-    string redPath;
     bool daemonize;
     string pipePath;
     useconds_t roundTime;
@@ -99,8 +89,6 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
     bool area = false;
     bool gcnt = false;
     bool rcnt = false;
-    bool gpth = false;
-    bool rpth = false;
     bool rndt = false;
     bool ppth = false;
 
@@ -121,15 +109,7 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
                 options.redCount = atoi(optarg);
                 rcnt = true;
                 break;
-            case 4: // --green-tank
-                options.greenPath = optarg;
-                gpth = true;
-                break;
-            case 5: // --red-tank
-                options.redPath = optarg;
-                rpth = true;
-                break;
-            case 8: // --round-time
+            case 6: // --round-time
                 options.roundTime = atoi(optarg);
                 rndt = true;
             default:
@@ -153,7 +133,7 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
         }
     }
 
-    if (!area || !gcnt || !rcnt || !gpth || !rpth || !rndt || !ppth) {
+    if (!area || !gcnt || !rcnt || !rndt || !ppth) {
         cerr << "some required options were not provided" << endl;
         exit(1);
     }
@@ -233,8 +213,7 @@ int main(int argc, char *argv[])
     /* Run game */
 
     World world(options.areaX, options.areaY, options.redCount,
-                options.greenCount, namedPipe, options.roundTime,
-                options.greenPath.c_str(), options.redPath.c_str());
+                options.greenCount, namedPipe, options.roundTime);
 
     world.init();
 
