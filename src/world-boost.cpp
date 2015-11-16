@@ -40,6 +40,9 @@ void usage()
     cout << "\t" << "-p, --pipe <path>" << endl;
     cout << "\t\t" << "use <path> as a FIFO pipe for worldclient program" << endl;
 
+    cout << "\t" << "--round-time <N>" << endl;
+    cout << "\t\t" << "set duration of one round to be <N> seconds" << endl;
+
     cout << "\t" << "-h, --help" << endl;
     cout << "\t\t" << "shows this help" << endl << endl;
 }
@@ -135,6 +138,7 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
 
     if (!area || !gcnt || !rcnt || !rndt || !ppth) {
         cerr << "some required options were not provided" << endl;
+        usage();
         exit(1);
     }
 

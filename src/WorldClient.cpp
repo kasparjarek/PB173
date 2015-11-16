@@ -12,16 +12,16 @@
 using namespace std;
 
 const struct option LONG_ARGS[] = {
-        {"usage", no_argument, NULL, 'h'},
+        {"help", no_argument, NULL, 'h'},
         {"pipe", required_argument, NULL, 'p'},
         {0, 0, 0, 0}
 };
 
 void usage(){
     cout << "Usage:" << endl;
-    cout << "\t" << "--pipe <path>" << endl;
+    cout << "\t" << "-p, --pipe <path>" << endl;
     cout << "\t" << "path to named pipe of world program" << endl;
-    cout << "\t" << "--usage" << endl;
+    cout << "\t" << "-h, --help" << endl;
 }
 
 WorldClient::WorldClient(char *path): y(0),
@@ -140,6 +140,7 @@ int main(int argc, char ** argv)
                 break;
             case 'h': //pipe
                 usage();
+                exit(0);
                 break;
             default:
                 usage();
