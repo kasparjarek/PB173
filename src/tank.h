@@ -42,7 +42,7 @@ public:
     }
 
     /**
-     *
+     * Check if the tank is marked as destroyed
      */
     bool isDestroyed() const;
 
@@ -52,19 +52,27 @@ public:
     void markAsDestroyed();
 
     /**
-     * Contact tank and ask him about the action. This action can be retrieved by getAction method.
-     * If communication with tank failed, return -1 and set action to UNDEFINED,
-     * otherwise return 0 and set action to proper value.
-     * Action can be also UNDEFINED when data retrieved from tank doesn't match any familiar action.
+     * Parse action after calling requireActionsFromAllTanks method.
+     * This action can be retrieved by getAction method.
+     * If communication with tank failed or data retrieved from tank doesn't match any familiar action
+     * return -1 and set action to UNDEFINED otherwise return 0 and set action to proper value.
      */
     int fetchAction();
 
+    /**
+     * Get action parsed by fetchAction method
+     */
     const Action & getAction() const;
 
+    /**
+     * Get team membership
+     */
     const Team & getTeam() const;
 
+    /**
+     * Contact all tanks and ask then about the action.
+     */
     static void requireActionsFromAllTanks();
-
 
 private:
 

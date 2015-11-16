@@ -16,7 +16,7 @@ const struct option LONG_ARGS[] = {
         {0, 0, 0, 0}
 };
 
-void usage()
+void printHelp()
 {
     cout << "Usage:" << endl;
     cout << "\t" << "-p, --pipe <path>" << endl;
@@ -117,6 +117,7 @@ int WorldClient::signalWorld(int signal)
         s.open("world.pid");
     }
     s >> pid;
+    syslog(LOG_ERR, "Read world pid as %d", pid);
     if(pid){
         kill(pid, signal);
         return 0;
@@ -153,11 +154,11 @@ int main(int argc, char ** argv)
                 pipe = optarg;
                 break;
             case 'h': //pipe
-                usage();
+                printHelp();
                 exit(0);
                 break;
             default:
-                usage();
+                printHelp();
                 exit(1);
         }
     }

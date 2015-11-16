@@ -1,12 +1,14 @@
 #include <iostream>
 #include <fcntl.h>
 #include <getopt.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <fstream>
 
 #include "world.h"
 
-using namespace std;
+using std::cout;
+using std::endl;
+
 
 const char *ARGS = "hdp:";
 const struct option LONG_ARGS[] = {
@@ -20,8 +22,7 @@ const struct option LONG_ARGS[] = {
     {0, 0, 0, 0}
 };
 
-/* Help screen */
-void usage()
+void printHelp()
 {
     cout << "Usage:" << endl;
 
@@ -47,34 +48,60 @@ void usage()
     cout << "\t\t" << "shows this help" << endl << endl;
 }
 
-/* Signal handlers */
+/* Signal handling */
+
 volatile bool done = false;
 volatile bool restart = false;
 
-static void termhdl(int signo)
+static void sigHandler(int signo)
 {
-    if (signo != SIGQUIT && signo != SIGTERM && signo != SIGINT)
-        syslog(LOG_ERR, "Error: invalid signal");
-    else
+    if (signo == SIGQUIT || signo == SIGTERM || signo == SIGINT) {
         done = true;
+    }
+    else if (signo == SIGUSR1) {
+        restart = true;
+    }
+    else {
+        syslog(LOG_ERR, "Error: invalid signal");
+    }
 }
 
-static void resthdl(int signo)
+int setSigHandler()
 {
-    if (signo != SIGUSR1)
-        syslog(LOG_ERR, "Error: invalid signal");
-    else
-        restart = true;
+    struct sigaction sigAction;
+    sigemptyset(&sigAction.sa_mask);
+    sigAction.sa_flags = 0;
+    sigAction.sa_handler = sigHandler;
+
+    if (sigaction(SIGQUIT, &sigAction, NULL) != 0) {
+        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
+        return -1;
+    }
+    if (sigaction(SIGINT, &sigAction, NULL) != 0) {
+        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
+        return -1;
+    }
+    if (sigaction(SIGTERM, &sigAction, NULL) != 0) {
+        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
+        return -1;
+    }
+    if (sigaction(SIGUSR1, &sigAction, NULL) != 0) {
+        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
+        return -1;
+    }
+
+    return 0;
 }
 
 /* Option parsing */
+
 struct worldOptions {
     int	areaX;
     int areaY;
     int greenCount;
     int redCount;
     bool daemonize;
-    string pipePath;
+    std::string pipePath;
     useconds_t roundTime;
 };
 
@@ -121,7 +148,7 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
             break;
 
         case 'h':   // --help
-            usage();
+            printHelp();
             exit(0);
         case 'd':   // --daemonize
             options.daemonize = true;
@@ -131,14 +158,14 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
             ppth = true;
             break;
         default:
-            usage();
+            printHelp();
             exit(1);
         }
     }
 
     if (!area || !gcnt || !rcnt || !rndt || !ppth) {
-        cerr << "some required options were not provided" << endl;
-        usage();
+        cout << "Some required options were not provided" << endl;
+        printHelp();
         exit(1);
     }
 
@@ -146,17 +173,19 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
 }
 
 /* Main */
+
 int main(int argc, char *argv[])
 {
     /* Parse options */
-    struct worldOptions options;
 
+    struct worldOptions options;
     if (!parseOptions(argc, argv, options)) {
-        cerr << "invalid options provided" << endl;
+        cout << "invalid options provided" << endl;
         exit(1);
     }
 
     /* Check if there is another instance of world running */
+
     char const *worldPidPath = "/var/run/world.pid";
     FILE *worldPid;
     if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
@@ -180,6 +209,7 @@ int main(int argc, char *argv[])
     }
 
     /* Daemonize */
+
     if (options.daemonize) {
         if (daemon(1, 0) != 0) {
             syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
@@ -189,50 +219,51 @@ int main(int argc, char *argv[])
         openlog(NULL, 0, LOG_DAEMON);
     }
 
-    /* Create Pipe */
-    int namedPipe;
+    /* Create Pipe if doesn't exist */
 
-    mkfifo(options.pipePath.c_str(), S_IRUSR | S_IWUSR);
-    if ((namedPipe = open(options.pipePath.c_str(), O_WRONLY)) == -1) {
-        syslog(LOG_ERR, "open() fifo pipe failed: %s", strerror(errno));
-        unlink(worldPidPath); //<< should go to try-catch block
-        exit(1);
-    }
-
-    /* Set signal actions */
-    struct sigaction termsa;
-    sigemptyset(&termsa.sa_mask);
-    termsa.sa_flags = 0;
-    termsa.sa_handler = termhdl;
-    sigaction(SIGQUIT, &termsa, NULL);
-    sigaction(SIGINT, &termsa, NULL);
-    sigaction(SIGTERM, &termsa, NULL);
-
-    struct sigaction restsa;
-    sigemptyset(&restsa.sa_mask);
-    restsa.sa_flags = 0;
-    restsa.sa_handler = resthdl;
-    sigaction(SIGUSR1, &restsa, NULL);
-
-    /* Run game */
-
-    World world(options.areaX, options.areaY, options.redCount,
-                options.greenCount, namedPipe, options.roundTime);
-
-    world.init();
-
-    while (!done) {
-        if (restart) {
-            world.restart();
-            restart = false;
-        } else {
-            world.performRound();
+    if (access(options.pipePath.c_str(), F_OK) != 0) {
+        if (mkfifo(options.pipePath.c_str(), S_IRUSR | S_IWUSR) != 0) {
+            syslog(LOG_ERR, "mkfifo() with name %s failed: %s",options.pipePath.c_str(), strerror(errno));
+            unlink(worldPidPath);
+            return 1;
         }
     }
 
-    /* Delete created files */
+    /* Set signal actions */
+
+    if (setSigHandler() != 0) {
+        unlink(worldPidPath);
+        unlink(options.pipePath.c_str());
+    }
+
+    /* Run game */
+
+    try {
+        World world(options.areaX, options.areaY, options.redCount,
+                    options.greenCount, options.pipePath, options.roundTime);
+
+        world.init();
+
+        while (!done) {
+            if (restart) {
+                world.init();
+                restart = false;
+            } else {
+                world.performRound();
+            }
+        }
+    } catch(std::runtime_error error) {
+        syslog(LOG_ERR, "World throw expection: %s", error.what());
+
+        unlink(options.pipePath.c_str());
+        unlink(worldPidPath);
+        return -1;
+    }
+
+
     unlink(options.pipePath.c_str());
     unlink(worldPidPath);
 
     return 0;
 }
+

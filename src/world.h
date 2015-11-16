@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string>
 #include <map>
+#include <fstream>
 #include "tank.h"
 
 class World
@@ -14,7 +15,7 @@ public:
           int areaY,
           int redCount,
           int greenCount,
-          int namedPipe,
+          std::string namedPipe,
           useconds_t roundTime);
 
     virtual ~World()
@@ -23,21 +24,25 @@ public:
     }
 
     /**
-     * Start game. Game is running until someone call stop method, then the game is reset and ready for new start.
-     * @return -1 when occurs some error, 0 otherwise
+     * Initialization the game.
+     * Create new tanks according to redCount and greenCount parameters which has been set in constructor.
+     * Set roundCount to zero and delete all previous tanks.
+     * @throw runtime_error when some error occurs
      */
-    int init();
+    void init();
 
+    /**
+     * Perform one round. Increase roundCount by one.
+     * Get actions from tank threads, parse them and perform them. After that wait for roundTime micro seconds.
+     */
     void performRound();
-
-    int restart();
 
 private:
     int areaX;
     int areaY;
     int redCount;
     int greenCount;
-    int namedPipe;
+    std::ofstream namedPipe;
     useconds_t roundTime;
     unsigned int roundCount;
 
@@ -45,35 +50,48 @@ private:
 
 
     /**
-     * Create tank - generate random position for tank, create child process
+     * Create tank - generate random position for tank, create new thread
      * and add new Tank pointer into maps maintaining tanks.
-     * @return pointer to created tank or nullptr if creating failed
+     * @return pointer to created tank
+     * @throw runtime_error if creating tank fail
      */
     Tank * createTank(Team team);
 
     /**
-     * Create several tanks using createTank method. If invoking one of this method fails
-     * return -1 and clear all tanks.
-     * @return -1 if fails creating one of tanks, 0 otherwise
+     * Create several tanks using createTank method.
+     * @throw runtime_error if creating tank fail
      */
-    int createTanks(Team team, int count);
+    void createTanks(Team team, int count);
 
     /**
      * Iterate through all tanks ale perform theirs actions
      */
     int performActions();
 
+    /**
+     * Print game state into namedPipe
+     */
     int printGameBoard();
 
     /**
      * Empty map maintaining tanks and free memory occupied by this tank.
+     * Destructor of this tanks should terminate their threads.
      */
     void clearTanks();
 
+    /**
+     * Log 'Tank hit' event into syslog
+     */
     void logTankHit(int aggressorX, int aggressorY, int victimX, int victimY);
 
+    /**
+     * Log 'Tank rolled off the map' event into syslog
+     */
     void logTankRolledOffTheMap(int x, int y);
 
+    /**
+     * * Log 'Tank crash' event into syslog
+     */
     void logTankCrash(int aggressorX, int aggressorY, int victimX, int victimY);
 };
 

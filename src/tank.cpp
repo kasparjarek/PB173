@@ -94,6 +94,7 @@ int Tank::fetchAction()
 
     if (action == UNDEFINED) {
         syslog(LOG_WARNING, "Read undefined action from array: '%c%c'", actionMsg[0], actionMsg[1]);
+        return -1;
     }
     return 0;
 }

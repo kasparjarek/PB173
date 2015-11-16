@@ -9,7 +9,7 @@ const struct option LONG_ARGS[] = {
     {0, 0, 0, 0}
 };
 
-void usage()
+void printHelp()
 {
     cout << "\t" << "-h, --help" << endl;
     cout << "\t\t" << "shows this help" << endl << endl;
@@ -22,10 +22,10 @@ int main(int argc, char *argv[])
     while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL)) != -1) {
         switch (opt) {
         case 'h':
-            usage();
+            printHelp();
             return 0;
         default:
-            usage();
+            printHelp();
             exit(1);
         }
     }

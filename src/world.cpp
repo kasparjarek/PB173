@@ -9,13 +9,14 @@
 #include "world.h"
 #include "tank.h"
 
-using namespace std;
+using std::runtime_error;
+using std::pair;
 
 World::World(int areaX,
              int areaY,
              int redCount,
              int greenCount,
-             int namedPipe,
+             std::string namedPipe,
              useconds_t roundTime)
     : areaX(areaX), areaY(areaY), redCount(redCount), greenCount(greenCount), namedPipe(namedPipe),
       roundTime(roundTime), roundCount(0)
@@ -23,21 +24,21 @@ World::World(int areaX,
     srand((unsigned int) time(NULL));
 
     if (areaX < 0 || areaY < 0 || redCount < 0 || greenCount < 0 || (areaY * areaX < redCount + greenCount)) {
-        throw runtime_error("invalid parameters");
+        throw runtime_error("Creating world failed: invalid parameters");
     }
 }
 
-int World::init()
+void World::init()
 {
-    if (createTanks(Team::GREEN, greenCount) != 0) {
-        return -1;
+    clearTanks();
+    roundCount = 0;
+    try {
+        createTanks(Team::GREEN, greenCount);
+        createTanks(Team::RED, redCount);
     }
-
-    if (createTanks(Team::RED, redCount) != 0) {
-        return -1;
+    catch (runtime_error error) {
+        throw runtime_error(std::string("World initialization failed: ") + error.what());
     }
-
-    return 0;
 }
 
 void World::performRound()
@@ -46,13 +47,6 @@ void World::performRound()
     performActions();
     printGameBoard();
     usleep(roundTime);
-}
-
-int World::restart()
-{
-    clearTanks();
-    roundCount = 0;
-    return init();
 }
 
 void World::clearTanks()
@@ -75,7 +69,7 @@ Tank *World::createTank(Team team)
     }
     catch (runtime_error error) {
         syslog(LOG_ERR, "Creating new tank failed: %s", error.what());
-        return nullptr;
+        throw runtime_error(std::string("Creating new tank failed: ") + error.what());
     }
 
     // Find random Y
@@ -85,47 +79,39 @@ Tank *World::createTank(Team team)
     }
 
     // Find random X
-    while (!row.insert(pair<int, Tank *>(abs(rand() % areaX), newTank)).second) {
-
-    }
+    while (!row.insert(pair<int, Tank *>(abs(rand() % areaX), newTank)).second) { }
 
     return newTank;
 }
 
-int World::createTanks(Team team, int count)
+void World::createTanks(Team team, int count)
 {
     for (int i = 0; i < count; ++i) {
-        if (createTank(team) == nullptr) {
-            clearTanks();
-            return -1;
-        }
+        createTank(team);
     }
-    return 0;
 }
 
 int World::printGameBoard()
 {
+    // TODO: check for errors
     char comma = ',';
     char green = 'g';
     char red = 'r';
-    char notank = '0';
+    char noTank = '0';
 
-    write(namedPipe, &areaX, sizeof(areaX));
-    write(namedPipe, &comma, sizeof(char));
-    write(namedPipe, &areaY, sizeof(areaY));
-    write(namedPipe, &comma, sizeof(char));
+    namedPipe << areaX << comma << areaY << comma;
 
     for (int i = 0; i < areaY; ++i) {
         for (int j = 0; j < areaX; ++j) {
             if (tanks.find(i) != tanks.end() && tanks[i].find(j) != tanks[i].end()) {
                 if (tanks[i][j]->getTeam() == GREEN)
-                    write(namedPipe, &green, sizeof(char));
+                    namedPipe << green;
                 else
-                    write(namedPipe, &red, sizeof(char));
+                    namedPipe << red;
             } else {
-                write(namedPipe, &notank, sizeof(char));
+                namedPipe << noTank;
             }
-            write(namedPipe, &comma, sizeof(char));
+            namedPipe << comma;
         }
     }
 
@@ -349,15 +335,18 @@ int World::performActions()
 
     return 0;
 }
+
 void World::logTankHit(int aggressorX, int aggressorY, int victimX, int victimY)
 {
     syslog(LOG_INFO, "Aggresor at [%d,%d] destroy tank at [%d,%d].",
            aggressorX, aggressorY, victimX, victimY);
 }
+
 void World::logTankRolledOffTheMap(int x, int y)
 {
     syslog(LOG_INFO, "Tank with at [%d,%d] rolled off the map.", x, y);
 }
+
 void World::logTankCrash(int aggressorX, int aggressorY, int victimX, int victimY)
 {
     syslog(LOG_INFO, "Tank at [%d,%d] crashed into tank at [%d,%d].",
