@@ -2,12 +2,11 @@
 
 #include <unistd.h>
 #include <sys/syslog.h>
-#include <signal.h>
-#include <stdexcept>
 #include <getopt.h>
+#include <signal.h>
 
 #include <iostream>
-#include <string>
+#include <stdexcept>
 
 using namespace std;
 
@@ -17,7 +16,8 @@ const struct option LONG_ARGS[] = {
         {0, 0, 0, 0}
 };
 
-void usage(){
+void usage()
+{
     cout << "Usage:" << endl;
     cout << "\t" << "-p, --pipe <path>" << endl;
     cout << "\t" << "path to named pipe of world program" << endl;
@@ -30,16 +30,22 @@ WorldClient::WorldClient(char *path): y(0),
                                       destroyedRedTanks(0),
                                       greenTanks(0),
                                       redTanks(0),
-                                      gameboard(nullptr){
-//    open pipe to world
-    char coordX[16];
-    char coordY[16];
+                                      gameboard(nullptr)
+{
+    // open pipe to world
     ifs.open (path, ifstream::in);
     if(!ifs.is_open() || !ifs.good()){
-        syslog(LOG_ERR, "couldn't read x,y from pipe");
+        syslog(LOG_ERR, "couldn't read x,y from pipe arg");
         throw runtime_error("couldn't read x,y from pipe");
     }
-//load size of gameboard
+
+    //load size of gameboard
+    readGameBoardSize();
+}
+
+int WorldClient::readGameBoardSize() {
+    char coordX[16];
+    char coordY[16];
     ifs.getline(coordX, 16, ',');
     ifs.getline(coordY, 16, ',');
     x = atoi(coordX);
@@ -47,9 +53,11 @@ WorldClient::WorldClient(char *path): y(0),
     if(x == 0 || y == 0){
         syslog(LOG_WARNING, "x or y is zero, possible error in reading file");
     }
+    return 0;
 }
 
-int WorldClient::initGameboard() {
+int WorldClient::initGameboard()
+{
     //start ncurses
     initscr();
     cbreak();
@@ -90,7 +98,8 @@ int WorldClient::initGameboard() {
     return 0;
 }
 
-int WorldClient::terminate() {
+int WorldClient::terminate()
+{
     ifs.close();
     wrefresh(gameboard);
     delwin(gameboard);
@@ -99,9 +108,14 @@ int WorldClient::terminate() {
 }
 
 //send signal to world process
-int WorldClient::signalWorld(int signal) {
+int WorldClient::signalWorld(int signal)
+{
     pid_t pid = 0;
     ifstream s(WORLD_PATH);
+    if(!s.is_open()){
+        syslog(LOG_INFO, "couldn't open %s, trying working dir.", WORLD_PATH);
+        s.open("world.pid");
+    }
     s >> pid;
     if(pid){
         kill(pid, signal);
@@ -111,7 +125,8 @@ int WorldClient::signalWorld(int signal) {
     return -1;
 }
 
-char WorldClient::readFieldFromPipe() {
+char WorldClient::readFieldFromPipe()
+{
     char field[2];
     field[0] = -1;
     ifs.getline(field, 2, ',');
@@ -120,7 +135,6 @@ char WorldClient::readFieldFromPipe() {
     }
     if(field[0] == 'r'){
         redTanks++;
-
     }
     if(field[0] == 'g'){
         greenTanks++;
@@ -154,8 +168,8 @@ int main(int argc, char ** argv)
     int input = 0;
     nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
 
-    int reds = 0; //count of red tanks in field
-    int greens = 0; //count of green tanks in field
+    int reds = 0; //count of red tanks in field from previous turn
+    int greens = 0; //count of green tanks in field from previous turn
     while(input != 'q')
     {
         char tank;

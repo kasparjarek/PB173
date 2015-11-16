@@ -10,8 +10,6 @@
 #include <fstream>
 
 #define WORLD_PATH "/var/run/world.pid"
-#define FIELD_EMPTY '0'
-#define FIELD_TANK 'X'
 
 class WorldClient {
 private:
@@ -30,24 +28,29 @@ public:
         return gameboard;
     }
 
-/**
+    /**
+     * Reads two integers from current position in ifs to x and y
+     */
+    int readGameBoardSize();
+
+    /**
      * Init gameboard - starts ncurses, print game frame and statistics
      */
     int initGameboard();
 
     /**
-     * close ncurses, exit
+     * Close ncurses, exit
      */
     int terminate();
 
 /**
-     * send signal to world process
+     * Send signal to world process
      * @param signal number
      */
     int signalWorld(int);
 
     /**
-     * reads one field from pipe file stream
+     * Reads one field from pipe file stream
      * @return -1 on error, 0
      */
     char readFieldFromPipe();
