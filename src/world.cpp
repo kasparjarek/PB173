@@ -73,7 +73,7 @@ Tank *World::createTank(Team team)
     }
 
     // Find random Y
-    auto row = tanks[abs(rand() % areaY)];
+    auto &row = tanks[abs(rand() % areaY)];
     while (row.size() - areaX - 1 == 0) {
         row = tanks[abs(rand() % areaY)];
     }
