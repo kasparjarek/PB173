@@ -12,7 +12,7 @@ std::condition_variable Tank::actionCV;
 std::mutex Tank::actionMtx;
 
 Tank::Tank(const Team &team)
-    : team(team), destroyed(false), action(UNDEFINED), threadDone(false)
+    : team(team), destroyed(false), actionMsg{'0','0'}, action(UNDEFINED), threadDone(false)
 {
     if (sem_init(&actionSem, 0, 0) == -1) {
         syslog(LOG_ERR, "sem_init() failed: %s", strerror(errno));

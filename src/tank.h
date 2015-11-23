@@ -35,7 +35,7 @@ public:
     virtual ~Tank()
     {
         threadDone = true;
-        thread->detach();
+        thread->join();
         delete thread;
 
         sem_destroy(&actionSem);

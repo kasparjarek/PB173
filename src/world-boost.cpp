@@ -96,13 +96,13 @@ int setSigHandler()
 /* Option parsing */
 
 struct worldOptions {
-    int	areaX;
-    int areaY;
-    int greenCount;
-    int redCount;
-    bool daemonize;
+    int	areaX = 0;
+    int areaY = 0;
+    int greenCount = 0;
+    int redCount = 0;
+    bool daemonize = 0;
     std::string pipePath;
-    useconds_t roundTime;
+    useconds_t roundTime = 0;
 };
 
 bool checkOptions(struct worldOptions & options)

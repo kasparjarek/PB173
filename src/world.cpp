@@ -39,6 +39,7 @@ void World::init()
     catch (runtime_error error) {
         throw runtime_error(std::string("World initialization failed: ") + error.what());
     }
+    printGameBoard();
 }
 
 void World::performRound()
