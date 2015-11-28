@@ -81,7 +81,6 @@ private:
 
     Team team;
     bool destroyed;
-    char actionMsg[2];
     sem_t actionSem;
     Action action;
 
