@@ -74,6 +74,8 @@ public:
      */
     static void requireActionsFromAllTanks();
 
+    void waitForTank() const;
+
 private:
 
     static std::condition_variable actionCV;
@@ -83,6 +85,7 @@ private:
     bool destroyed;
     char actionMsg[2];
     sem_t actionSem;
+    sem_t readySem;
     Action action;
 
     std::thread *thread;

@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <fstream>
 #include <stdexcept>
 #include <sys/wait.h>
 #include <syslog.h>
@@ -16,12 +17,14 @@ World::World(int areaX,
              int areaY,
              int redCount,
              int greenCount,
-             std::string namedPipe,
+             std::string & namedPipe,
              useconds_t roundTime)
-    : areaX(areaX), areaY(areaY), redCount(redCount), greenCount(greenCount), namedPipe(namedPipe),
+    : areaX(areaX), areaY(areaY), redCount(redCount), greenCount(greenCount),
       roundTime(roundTime), roundCount(0)
 {
     srand((unsigned int) time(NULL));
+
+    this->namedPipe.open(namedPipe);
 
     if (areaX < 0 || areaY < 0 || redCount < 0 || greenCount < 0 || (areaY * areaX < redCount + greenCount)) {
         throw runtime_error("Creating world failed: invalid parameters");

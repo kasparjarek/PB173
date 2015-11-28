@@ -15,7 +15,7 @@ public:
           int areaY,
           int redCount,
           int greenCount,
-          std::string namedPipe,
+          std::string & namedPipe,
           useconds_t roundTime);
 
     virtual ~World()

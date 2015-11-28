@@ -186,14 +186,11 @@ int main(int argc, char *argv[])
 
     /* Check if there is another instance of world running */
 
-    char const *worldPidPath = "/var/run/world.pid";
+    const char *worldPidPath = "world.pid";
     FILE *worldPid;
     if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
-        worldPidPath = "world.pid";
-        if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
-            syslog(LOG_ERR, "cannot open %s: %s", worldPidPath, strerror(errno));
-            exit(1);
-        }
+        syslog(LOG_ERR, "cannot open %s: %s", worldPidPath, strerror(errno));
+        exit(1);
     }
 
     pid_t savedPid;
@@ -203,6 +200,7 @@ int main(int argc, char *argv[])
     } else {
         if (savedPid != getpid()) {
             syslog(LOG_INFO, "world pid %d is already running", savedPid);
+            fprintf(stderr, "world pid %d is already running\n", savedPid);
             fclose(worldPid);
             exit(0);
         }
@@ -213,7 +211,7 @@ int main(int argc, char *argv[])
     if (options.daemonize) {
         if (daemon(1, 0) != 0) {
             syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
-            unlink(worldPidPath); //<< should go to try-catch block
+            unlink(worldPidPath);
             exit(1);
         }
         openlog(NULL, 0, LOG_DAEMON);
@@ -253,7 +251,7 @@ int main(int argc, char *argv[])
             }
         }
     } catch(std::runtime_error error) {
-        syslog(LOG_ERR, "World throw expection: %s", error.what());
+        syslog(LOG_ERR, "World threw expection: %s", error.what());
 
         unlink(options.pipePath.c_str());
         unlink(worldPidPath);

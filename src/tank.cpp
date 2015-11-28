@@ -18,6 +18,10 @@ Tank::Tank(const Team &team)
         syslog(LOG_ERR, "sem_init() failed: %s", strerror(errno));
         throw std::runtime_error("Creating semaphore failed");
     }
+    if (sem_init(&readySem, 0, 0) == -1) {
+        syslog(LOG_ERR, "sem_init() failed: %s", strerror(errno));
+        throw std::runtime_error("Creating semaphore failed");
+    }
 
     try {
         thread = new std::thread(&Tank::threadFnc, this);
