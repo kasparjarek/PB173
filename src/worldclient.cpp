@@ -1,12 +1,15 @@
-#include "WorldClient.h"
+#include "worldclient.h"
 
 #include <unistd.h>
 #include <sys/syslog.h>
 #include <getopt.h>
 #include <signal.h>
-
+#include <sys/inotify.h>
 #include <iostream>
 #include <stdexcept>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 using namespace std;
 
@@ -32,6 +35,15 @@ WorldClient::WorldClient(char *path): y(0),
                                       redTanks(0),
                                       gameboard(nullptr)
 {
+
+    //if pipe doesn't exist, create it
+    if (access(path, F_OK) != 0) {
+        if (mkfifo(path, S_IRUSR | S_IWUSR) != 0) {
+            syslog(LOG_ERR, "mkfifo() with name %s failed: %s",path, strerror(errno));
+            throw std::runtime_error("mkfifo failed");
+        }
+    }
+
     // open pipe to world
     ifs.open (path, ifstream::in);
     if(!ifs.is_open() || !ifs.good()){
@@ -82,19 +94,6 @@ int WorldClient::initGameboard()
             }
         }
     }
-
-    //print statistics
-    wmove(gameboard, y+3, 0);
-    waddstr(gameboard, "Destroyed tanks: ");
-    wattron(gameboard, COLOR_PAIR(2));
-    wrefresh(gameboard);
-    wmove(gameboard, y+4, 0);
-    waddch(gameboard, '0');
-
-    wattron(gameboard, COLOR_PAIR(3));
-    wmove(gameboard, y+5, 0);
-    waddch(gameboard, '0');
-    wrefresh(gameboard);
     return 0;
 }
 
@@ -148,7 +147,7 @@ int main(int argc, char ** argv)
     //handle main arguments
     char * pipe = NULL;
     char opt;
-    while ((opt = getopt_long(argc, argv, "p:h", LONG_ARGS, NULL)) != -1) {
+    while ((opt = (char) getopt_long(argc, argv, "p:h", LONG_ARGS, NULL)) != -1) {
         switch (opt) {
             case 'p': //pipe
                 pipe = optarg;
@@ -169,8 +168,6 @@ int main(int argc, char ** argv)
     int input = 0;
     nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
 
-    int reds = 0; //count of red tanks in field from previous turn
-    int greens = 0; //count of green tanks in field from previous turn
     while(input != 'q')
     {
         char tank;
@@ -203,24 +200,6 @@ int main(int argc, char ** argv)
             }
         }
 
-        //print statistics
-        wc.setDestroyedGreenTanks(wc.getDestroyedGreenTanks() + (greens - wc.getGreenTanks()));
-        if(wc.getDestroyedGreenTanks() < 0)
-            wc.setDestroyedGreenTanks(0);
-        wattron(wc.getGameboard(), COLOR_PAIR(2));
-        mvwaddstr(wc.getGameboard(), wc.getY()+4, 0, to_string(wc.getDestroyedGreenTanks()).c_str());
-
-        wc.setDestroyedRedTanks(wc.getDestroyedRedTanks() + (reds - wc.getRedTanks()));
-        if(wc.getDestroyedRedTanks() < 0)
-            wc.setDestroyedRedTanks(0);
-        wattron(wc.getGameboard(), COLOR_PAIR(3));
-        mvwaddstr(wc.getGameboard(), wc.getY()+5, 0, to_string(wc.getDestroyedRedTanks()).c_str());
-
-        greens = wc.getGreenTanks();
-        reds = wc.getRedTanks();
-        wc.setGreenTanks(0);
-        wc.setRedTanks(0);
-
         //check, if there is input waiting
         input = wgetch(wc.getGameboard());
         switch (input){
@@ -231,10 +210,10 @@ int main(int argc, char ** argv)
                 break;
             case 'r':
                 wc.signalWorld(SIGUSR1);
-                break;
-            default: //in case of none or unknown input
+            default: //in case of none or unknown input do nothing
                 break;
         }
     }
     wc.terminate();
+    return 0;
 }
