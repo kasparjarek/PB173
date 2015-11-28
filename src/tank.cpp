@@ -69,13 +69,9 @@ void Tank::threadFnc()
 {
     std::unique_lock<std::mutex> uniqueLock(actionMtx);
 
-    while(true) {
+    while(threadDone) {
         if (actionCV.wait_for(uniqueLock, std::chrono::seconds(4)) == std::cv_status::no_timeout) {
             doAction();
-        }
-
-        if (threadDone) {
-            return;
         }
     }
 }
