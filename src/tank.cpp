@@ -10,6 +10,7 @@
 
 std::condition_variable Tank::actionCV;
 std::mutex Tank::actionMtx;
+bool Tank::notifyOk;
 
 Tank::Tank(const Team &team)
     : team(team), destroyed(false), action(UNDEFINED), threadDone(false)
@@ -66,18 +67,31 @@ const Team &Tank::getTeam() const
 
 void Tank::requireActionsFromAllTanks()
 {
+    std::unique_lock<std::mutex> uniqueLock(actionMtx);
+    //notifyOk = true;
     Tank::actionCV.notify_all();
+    uniqueLock.unlock();
 }
 
 void Tank::threadFnc()
 {
-    std::unique_lock<std::mutex> uniqueLock(actionMtx);
+    std::unique_lock<std::mutex> uniqueLock(actionMtx, std::defer_lock);
 
-    while(threadDone) {
-        if (actionCV.wait_for(uniqueLock, std::chrono::seconds(4)) == std::cv_status::no_timeout) {
+    while (!threadDone) {
+
+        uniqueLock.lock();
+        sem_post(&readySem);
+        actionCV.wait_for(uniqueLock, std::chrono::seconds(2));
+        uniqueLock.unlock();
+
+        if (!threadDone)
             doAction();
-        }
     }
+}
+
+void Tank::waitForTank()
+{
+    sem_wait(&readySem);
 }
 
 void Tank::doAction()

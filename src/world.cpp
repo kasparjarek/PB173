@@ -124,6 +124,13 @@ int World::printGameBoard()
 
 int World::performActions()
 {
+    /* Wait for tanks to be ready for action */
+    for (auto rowIter = tanks.begin(); rowIter != tanks.end(); ++rowIter) {
+        for (auto colIter = rowIter->second.begin(); colIter != rowIter->second.end(); ++colIter) {
+            Tank *tank = colIter->second;
+            tank->waitForTank();
+        }
+    }
     Tank::requireActionsFromAllTanks();
 
     // Handle FIRE action
@@ -230,9 +237,11 @@ int World::performActions()
                             // Missing row
                             if (rowIter->first - 1 != closestUpRow->first) {
                                 tanks[rowIter->first - 1].insert(pair<int, Tank *>(colIter->first, tank));
+                                // << tento tank sa zmaze! >>
                             }
                             else {
                                 closestUpRow->second.insert(pair<int, Tank *>(colIter->first, tank));
+                                // << tento tank sa zmaze! >>
                             }
                         }
                     }

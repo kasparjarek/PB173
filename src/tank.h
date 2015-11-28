@@ -74,12 +74,13 @@ public:
      */
     static void requireActionsFromAllTanks();
 
-    void waitForTank() const;
+    void waitForTank();
 
 private:
 
     static std::condition_variable actionCV;
     static std::mutex actionMtx;
+    static bool notifyOk;
 
     Team team;
     bool destroyed;
