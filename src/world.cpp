@@ -158,7 +158,7 @@ int World::performActions()
                             auto tankIterUp = iterUp->second.find(colIter->first);
                             if (tankIterUp != iterUp->second.end()) {
                                 logTankHit(colIter->first, rowIter->first, colIter->first, iterUp->first);
-                                destroyedTanks.push_back(tankIterUp->second->markAsDestroyed());
+                                tankIterUp->second->markAsDestroyed();
                             }
                             iterUp++;
                         }
@@ -171,7 +171,7 @@ int World::performActions()
                             auto tankIterDown = iterDown->second.find(colIter->first);
                             if (tankIterDown != iterDown->second.end()) {
                                 logTankHit(colIter->first, rowIter->first, colIter->first, iterDown->first);
-                                destroyedTanks.push_back(tankIterDown->second->markAsDestroyed());
+                                tankIterDown->second->markAsDestroyed();
                             }
                         }
                         break;
@@ -181,7 +181,7 @@ int World::performActions()
                         auto iterRight = colIter;
                         while (++iterRight != rowIter->second.end()) {
                             logTankHit(colIter->first, rowIter->first, iterRight->first, rowIter->first);
-                            destroyedTanks.push_back(iterRight->second->markAsDestroyed());
+                            iterRight->second->markAsDestroyed();
                         }
                         break;
                     }
@@ -190,7 +190,7 @@ int World::performActions()
                         auto iterLeft = rowIter->second.begin();
                         while (iterLeft != colIter) {
                             logTankHit(colIter->first, rowIter->first, iterLeft->first, rowIter->first);
-                            destroyedTanks.push_back(iterLeft->second->markAsDestroyed());
+                            iterLeft->second->markAsDestroyed();
                             iterLeft++;
                         }
                         break;
@@ -212,6 +212,7 @@ int World::performActions()
             Tank *tank = colIter->second;
 
             if (tank->isDestroyed()) {
+                destroyedTanks.push_back(tank);
                 rowIter->second.erase(colIter++);
                 continue;
             }
