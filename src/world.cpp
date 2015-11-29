@@ -51,7 +51,7 @@ void World::performRound()
     roundCount++;
     performActions();
     printGameBoard();
-    usleep(roundTime);
+    sleep(roundTime);
 }
 
 void World::clearTanks()
