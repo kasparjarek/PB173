@@ -45,7 +45,6 @@ void Tank::markAsDestroyed()
 
 int Tank::fetchAction()
 {
-    // parse action from pipe
     if (sem_wait(&actionSem) == -1) {
         syslog(LOG_WARNING, "sem_wait() failed: %s", strerror(errno));
         action = UNDEFINED;

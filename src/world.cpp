@@ -213,6 +213,7 @@ int World::performActions()
                     // Am I at the end of map?
                     if (rowIter->first == 0) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
+                        delete tank;
                     }
                     else {
                         // No tank above, Move up
@@ -231,21 +232,19 @@ int World::performActions()
                             logTankCrash(colIter->first, rowIter->first, colIter->first, closestUpRow->first);
                             delete closestUp->second;
                             closestUpRow->second.erase(closestUp);
+                            delete tank;
                         }
                         // Move up
                         else {
                             // Missing row
                             if (rowIter->first - 1 != closestUpRow->first) {
                                 tanks[rowIter->first - 1].insert(pair<int, Tank *>(colIter->first, tank));
-                                // << tento tank sa zmaze! >>
                             }
                             else {
                                 closestUpRow->second.insert(pair<int, Tank *>(colIter->first, tank));
-                                // << tento tank sa zmaze! >>
                             }
                         }
                     }
-                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
@@ -254,6 +253,7 @@ int World::performActions()
                     // Am I at the end of map?
                     if (rowIter->first + 1 >= areaY) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
+                        delete tank;
                     }
                     else {
                         auto closestDownRow = rowIter;
@@ -272,6 +272,7 @@ int World::performActions()
                                 logTankCrash(colIter->first, rowIter->first, colIter->first, closestDownRow->first);
                                 delete closestDown->second;
                                 closestDownRow->second.erase(closestDown);
+                                delete tank;
                             }
                             // Move down
                             else {
@@ -279,7 +280,6 @@ int World::performActions()
                             }
                         }
                     }
-                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
@@ -288,6 +288,7 @@ int World::performActions()
                     // Am I at the end of map?
                     if (colIter->first + 1 >= areaX) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
+                        delete tank;
                     }
                     else {
                         auto closestRight = colIter;
@@ -298,6 +299,7 @@ int World::performActions()
                             logTankCrash(colIter->first, rowIter->first, closestRight->first, rowIter->first);
                             delete closestRight->second;
                             rowIter->second.erase(closestRight);
+                            delete tank;
                         }
                         // Move Right
                         else {
@@ -305,7 +307,6 @@ int World::performActions()
                         }
 
                     }
-                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
@@ -314,23 +315,23 @@ int World::performActions()
                     // Am I at the end of map?
                     if (colIter->first == 0) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
+                        delete tank;
                     }
                     else {
                         auto closestLeft = colIter;
-                        closestLeft--;
 
                         // Tank crash
-                        if (colIter != rowIter->second.begin() && colIter->first - 1 == closestLeft->first) {
+                        if (colIter != rowIter->second.begin() && colIter->first - 1 == (--closestLeft)->first) {
                             logTankCrash(colIter->first, rowIter->first, closestLeft->first, rowIter->first);
                             delete closestLeft->second;
                             rowIter->second.erase(closestLeft);
+                            delete tank;
                         }
                         // Move Left
                         else {
                             rowIter->second.insert(pair<int, Tank *>(colIter->first - 1, tank));
                         }
                     }
-                    delete tank;
                     rowIter->second.erase(colIter++);
                     continue;
 
