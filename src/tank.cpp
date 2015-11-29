@@ -10,15 +10,10 @@
 
 std::condition_variable Tank::actionCV;
 std::mutex Tank::actionMtx;
-bool Tank::notifyOk;
 
 Tank::Tank(const Team &team)
-    : team(team), destroyed(false), action(UNDEFINED), threadDone(false)
+    : team(team), action(UNDEFINED), destroyed(false)
 {
-    if (sem_init(&actionSem, 0, 0) == -1) {
-        syslog(LOG_ERR, "sem_init() failed: %s", strerror(errno));
-        throw std::runtime_error("Creating semaphore failed");
-    }
     if (sem_init(&readySem, 0, 0) == -1) {
         syslog(LOG_ERR, "sem_init() failed: %s", strerror(errno));
         throw std::runtime_error("Creating semaphore failed");
@@ -28,7 +23,7 @@ Tank::Tank(const Team &team)
         thread = new std::thread(&Tank::threadFnc, this);
     } catch (std::system_error error) {
         syslog(LOG_ERR, "Creating tank thread failed: %s", error.what());
-        sem_destroy(&actionSem);
+        sem_destroy(&readySem);
         throw error;
     }
 }
@@ -38,20 +33,10 @@ bool Tank::isDestroyed() const
     return destroyed;
 }
 
-void Tank::markAsDestroyed()
+Tank* Tank::markAsDestroyed()
 {
     destroyed = true;
-}
-
-int Tank::fetchAction()
-{
-    if (sem_wait(&actionSem) == -1) {
-        syslog(LOG_WARNING, "sem_wait() failed: %s", strerror(errno));
-        action = UNDEFINED;
-        return -1;
-    }
-
-    return 0;
+    return this;
 }
 
 const Action &Tank::getAction() const
@@ -64,41 +49,48 @@ const Team &Tank::getTeam() const
     return team;
 }
 
-void Tank::requireActionsFromAllTanks()
+void Tank::notifyAllTanks()
 {
     std::unique_lock<std::mutex> uniqueLock(actionMtx);
-    //notifyOk = true;
     Tank::actionCV.notify_all();
-    uniqueLock.unlock();
 }
 
 void Tank::threadFnc()
 {
     std::unique_lock<std::mutex> uniqueLock(actionMtx, std::defer_lock);
 
-    while (!threadDone) {
+    while (!destroyed) {
 
         uniqueLock.lock();
-        sem_post(&readySem);
-        actionCV.wait_for(uniqueLock, std::chrono::seconds(2));
+        if (sem_post(&readySem) != 0) {
+            syslog(LOG_WARNING, "sem_post() failed: %s", strerror(errno));
+        }
+        actionCV.wait(uniqueLock);
         uniqueLock.unlock();
 
-        if (!threadDone)
-            doAction();
+        doAction();
+
+        uniqueLock.lock();
+        if (sem_post(&readySem) != 0) {
+            syslog(LOG_WARNING, "sem_post() failed: %s", strerror(errno));
+        }
+        actionCV.wait(uniqueLock);
+        uniqueLock.unlock();
     }
 }
 
-void Tank::waitForTank()
+int Tank::waitForTank()
 {
-    sem_wait(&readySem);
+    if (sem_wait(&readySem) == -1) {
+        syslog(LOG_WARNING, "sem_wait() failed: %s", strerror(errno));
+        action = UNDEFINED;
+        return -1;
+    }
+    return 0;
 }
 
 void Tank::doAction()
 {
     // TODO fix calling rand in thread (maybe rand_r can be solution)
     this->action = static_cast<enum Action>((rand() % 8)  + 1);
-
-    if (sem_post(&actionSem) != 0) {
-        syslog(LOG_WARNING, "sem_post() failed: %s", strerror(errno));
-    }
 }

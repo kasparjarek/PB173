@@ -80,6 +80,11 @@ private:
     void clearTanks();
 
     /**
+     * Wait for ready semaphore on all tanks. After this, all tanks are ready to receive notify_all.
+     */
+    void waitForAllTanks();
+
+    /**
      * Log 'Tank hit' event into syslog
      */
     void logTankHit(int aggressorX, int aggressorY, int victimX, int victimY);

@@ -12,6 +12,7 @@
 #include <semaphore.h>
 #include <thread>
 #include <condition_variable>
+#include <vector>
 
 enum Team
 {
@@ -34,11 +35,9 @@ public:
 
     virtual ~Tank()
     {
-        threadDone = true;
+        sem_destroy(&readySem);
         thread->join();
         delete thread;
-
-        sem_destroy(&actionSem);
     }
 
     /**
@@ -49,15 +48,7 @@ public:
     /**
      * Mark this tank as destroyed
      */
-    void markAsDestroyed();
-
-    /**
-     * Parse action after calling requireActionsFromAllTanks method.
-     * This action can be retrieved by getAction method.
-     * If communication with tank failed or data retrieved from tank doesn't match any familiar action
-     * return -1 and set action to UNDEFINED otherwise return 0 and set action to proper value.
-     */
-    int fetchAction();
+    Tank *markAsDestroyed();
 
     /**
      * Get action parsed by fetchAction method
@@ -72,24 +63,21 @@ public:
     /**
      * Contact all tanks and ask then about the action.
      */
-    static void requireActionsFromAllTanks();
+    static void notifyAllTanks();
 
-    void waitForTank();
+    int waitForTank();
 
 private:
 
     static std::condition_variable actionCV;
     static std::mutex actionMtx;
-    static bool notifyOk;
 
     Team team;
-    bool destroyed;
-    sem_t actionSem;
     sem_t readySem;
     Action action;
 
     std::thread *thread;
-    std::atomic_bool threadDone;
+    std::atomic_bool destroyed;
 
     void threadFnc();
     void doAction();
