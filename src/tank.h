@@ -60,6 +60,8 @@ public:
      */
     const Team & getTeam() const;
 
+    void _setActionToUndefined();
+
     /**
      * Contact all tanks and ask then about the action.
      */

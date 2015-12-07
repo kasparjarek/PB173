@@ -94,3 +94,8 @@ void Tank::doAction()
     // TODO fix calling rand in thread (maybe rand_r can be solution)
     this->action = static_cast<enum Action>((rand() % 8)  + 1);
 }
+
+void Tank::_setActionToUndefined()
+{
+    this->action = UNDEFINED;
+}
