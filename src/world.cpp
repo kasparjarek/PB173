@@ -232,6 +232,7 @@ int World::performActions()
                         if (rowIter == tanks.begin()) {
                             tanks[rowIter->first - 1].insert(pair<int, Tank *>(colIter->first, tank));
                             rowIter->second.erase(colIter++);
+                            tank->_setActionToUndefined();
                             continue;
                         }
 
@@ -274,6 +275,7 @@ int World::performActions()
                         // Create new row and Move Down
                         if (closestDownRow == tanks.end() || rowIter->first + 1 != closestDownRow->first) {
                             tanks[rowIter->first + 1].insert(pair<int, Tank *>(colIter->first, tank));
+                            tank->_setActionToUndefined();
                         }
                         // Row exist
                         else {
@@ -289,6 +291,7 @@ int World::performActions()
                             // Move down
                             else {
                                 closestDownRow->second.insert(pair<int, Tank *>(colIter->first, tank));
+                                tank->_setActionToUndefined();
                             }
                         }
                     }
@@ -316,6 +319,7 @@ int World::performActions()
                         // Move Right
                         else {
                             rowIter->second.insert(colIter, pair<int, Tank *>(colIter->first + 1, tank));
+                            tank->_setActionToUndefined();
                         }
 
                     }
@@ -342,6 +346,7 @@ int World::performActions()
                         // Move Left
                         else {
                             rowIter->second.insert(pair<int, Tank *>(colIter->first - 1, tank));
+                            tank->_setActionToUndefined();
                         }
                     }
                     rowIter->second.erase(colIter++);
