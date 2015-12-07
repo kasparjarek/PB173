@@ -49,6 +49,7 @@ void World::init()
 void World::performRound()
 {
     roundCount++;
+    syslog(LOG_INFO, "round num %d started", roundCount);
     performActions();
     printGameBoard();
     sleep(roundTime);
