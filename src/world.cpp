@@ -44,10 +44,12 @@ void World::init()
         throw runtime_error(std::string("World initialization failed: ") + error.what());
     }
     printGameBoard();
+    sleep(roundTime);
 }
 
 void World::performRound()
 {
+    syslog(LOG_INFO, "round %d starting", roundCount);
     roundCount++;
     performActions();
     printGameBoard();
