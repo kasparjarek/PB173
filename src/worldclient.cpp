@@ -29,10 +29,6 @@ void printHelp()
 
 WorldClient::WorldClient(char *path): y(0),
                                       x(0),
-                                      destroyedGreenTanks(0),
-                                      destroyedRedTanks(0),
-                                      greenTanks(0),
-                                      redTanks(0),
                                       gameboard(nullptr)
 {
 
@@ -45,26 +41,39 @@ WorldClient::WorldClient(char *path): y(0),
     }
 
     // open pipe to world
-    ifs.open (path, ifstream::in);
-    if(!ifs.is_open() || !ifs.good()){
-        syslog(LOG_ERR, "couldn't read x,y from pipe arg");
-        throw runtime_error("couldn't read x,y from pipe");
-    }
+    pipe = open(path, O_RDONLY);
 
     //load size of gameboard
     readGameBoardSize();
 }
 
 int WorldClient::readGameBoardSize() {
-    char coordX[16];
-    char coordY[16];
-    ifs.getline(coordX, 16, ',');
-    ifs.getline(coordY, 16, ',');
-    x = atoi(coordX);
-    y = atoi(coordY);
-    if(x == 0 || y == 0){
-        syslog(LOG_WARNING, "x or y is zero, possible error in reading file");
+    char cur;
+    char buffer[16];
+    memset(buffer, 0, 16);
+    int counter = 0;
+    while(1){
+        read(pipe, &cur, 1);
+        if(cur == ',')
+            break;
+        buffer[counter] = cur;
+        counter++;
     }
+    x = atoi(buffer);
+    syslog(LOG_INFO, "read x from pipe: %d", x);
+
+    memset(buffer, 0, 16);
+    counter = 0;
+    while(1){
+        read(pipe, &cur, 1);
+        if(cur == ',')
+            break;
+        buffer[counter] = cur;
+        counter++;
+    }
+    y = atoi(buffer);
+    syslog(LOG_INFO, "read y from pipe: %d", y);
+
     return 0;
 }
 
@@ -99,7 +108,7 @@ int WorldClient::initGameboard()
 
 int WorldClient::terminate()
 {
-    ifs.close();
+    close(pipe);
     wrefresh(gameboard);
     delwin(gameboard);
     endwin();
@@ -128,18 +137,14 @@ int WorldClient::signalWorld(int signal)
 char WorldClient::readFieldFromPipe()
 {
     char field[2];
-    field[0] = -1;
-    ifs.getline(field, 2, ',');
-    if(field[0] == -1){
-        syslog(LOG_WARNING, "couldn't read field from pipe");
+    if(read(pipe, field, 2) == -1){
+        syslog(LOG_ERR, "couldn't ->read<- field from pipe");
     }
-    if(field[0] == 'r'){
-        redTanks++;
-    }
-    if(field[0] == 'g'){
-        greenTanks++;
+    if(field[1] != ','){
+        syslog(LOG_ERR, "illegal field separator from pipe");
     }
     return field[0];
+
 }
 
 int main(int argc, char ** argv)
@@ -155,7 +160,6 @@ int main(int argc, char ** argv)
             case 'h': //pipe
                 printHelp();
                 exit(0);
-                break;
             default:
                 printHelp();
                 exit(1);
@@ -176,28 +180,24 @@ int main(int argc, char ** argv)
         while(fieldCounter < wc.getX()*wc.getY())
         {
             tank = wc.readFieldFromPipe();
-            if(tank == -1 || !wc.getIfs().good()){
-                break;
-            }
+
             switch (tank) {
                 case '0':
                     mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
-                    fieldCounter++;
                     break;
                 case 'g':
                     wattron(wc.getGameboard(), COLOR_PAIR(2));
                     mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
-                    fieldCounter++;
-                    wc.setGreenTanks(wc.getGreenTanks() + 1);
                     break;
                 case 'r':
                     wattron(wc.getGameboard(), COLOR_PAIR(3));
                     mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
-                    fieldCounter++;
-                    wc.setRedTanks(wc.getRedTanks() + 1);
                     break;
-                default:break;
+                default:
+                    syslog(LOG_ERR, "illegal field input: %c", tank);
+                    break;
             }
+            fieldCounter++;
         }
 
         //check, if there is input waiting
@@ -213,6 +213,7 @@ int main(int argc, char ** argv)
             default: //in case of none or unknown input do nothing
                 break;
         }
+        wc.readGameBoardSize();
     }
     wc.terminate();
     return 0;

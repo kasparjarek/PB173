@@ -58,6 +58,10 @@ static void sigHandler(int signo)
     if (signo == SIGQUIT || signo == SIGTERM || signo == SIGINT) {
         done = true;
     }
+    else if (signo == SIGPIPE) {
+        done = true;
+        syslog(LOG_WARNING, "Catch SIGPIPE, terminating");
+    }
     else if (signo == SIGUSR1) {
         restart = true;
     }
@@ -86,6 +90,10 @@ int setSigHandler()
         return -1;
     }
     if (sigaction(SIGUSR1, &sigAction, NULL) != 0) {
+        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
+        return -1;
+    }
+    if (sigaction(SIGPIPE, &sigAction, NULL) != 0) {
         syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
         return -1;
     }

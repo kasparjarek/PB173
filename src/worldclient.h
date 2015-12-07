@@ -15,12 +15,8 @@ class WorldClient {
 private:
     int y;
     int x;
-    int destroyedGreenTanks;
-    int destroyedRedTanks;
-    int greenTanks;
-    int redTanks;
+    int pipe;
     WINDOW * gameboard;
-    std::ifstream ifs;
 public:
     WorldClient(char *);
 
@@ -61,41 +57,6 @@ public:
 
     int getY() const {
         return y;
-    }
-
-    void setDestroyedRedTanks(int destroyedRedTanks) {
-        WorldClient::destroyedRedTanks = destroyedRedTanks;
-    }
-
-    void setDestroyedGreenTanks(int destroyedGreenTanks) {
-        WorldClient::destroyedGreenTanks = destroyedGreenTanks;
-    }
-
-    int getDestroyedGreenTanks() const {
-        return destroyedGreenTanks;
-    }
-
-    int getDestroyedRedTanks() const {
-        return destroyedRedTanks;
-    }
-
-    int getRedTanks() const {
-        return redTanks;
-    }
-
-    int getGreenTanks() const {
-        return greenTanks;
-    }
-
-    const std::ifstream &getIfs() const {
-        return ifs;
-    }
-    void setRedTanks(int red_tanks) {
-        WorldClient::redTanks = red_tanks;
-    }
-
-    void setGreenTanks(int green_tanks) {
-        WorldClient::greenTanks = green_tanks;
     }
 };
 
