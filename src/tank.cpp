@@ -1,12 +1,16 @@
-#include <sys/syslog.h>
-#include <string.h>
-#include <sys/errno.h>
-#include <stdlib.h>
-#include <stdexcept>
-#include <signal.h>
-#include <unistd.h>
-#include <thread>
 #include "tank.h"
+
+#include <netdb.h>
+#include <sys/errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/syslog.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <stdexcept>
+#include <thread>
 
 std::condition_variable Tank::actionCV;
 std::mutex Tank::actionMtx;
@@ -91,11 +95,73 @@ int Tank::waitForTank()
 
 void Tank::doAction()
 {
-    // TODO fix calling rand in thread (maybe rand_r can be solution)
-    this->action = static_cast<enum Action>((rand() % 8)  + 1);
+    this->action = parseAction(currentAction);
+    send(sd_client, currentAction, 2, 0);
+    currentAction[0] = 'n';
+    currentAction[1] = 'o';
+    if (currentAction == actionBuffer)
+        currentAction += 2;
+    else
+        currentAction -=2;
+}
+
+Action Tank::parseAction(const char *actionStr)
+{
+    switch (actionStr[0]) {
+    case 'f':
+        switch (actionStr[1]) {
+        case 'u':
+            return FIRE_UP;
+        case 'd':
+            return FIRE_DOWN;
+        case 'l':
+            return FIRE_LEFT;
+        case 'r':
+            return FIRE_RIGHT;
+        }
+    case 'm':
+        switch (actionStr[1]) {
+        case 'u':
+            return MOVE_UP;
+        case 'd':
+            return MOVE_DOWN;
+        case 'l':
+            return MOVE_LEFT;
+        case 'r':
+            return MOVE_RIGHT;
+        }
+    case 'n':
+        if (actionStr[1] == 'o')
+            return NO_ACTION;
+    default:
+        return UNDEFINED;
+    }
+}
+
+void Tank::setNextAction(const char *actionStr)
+{
+    if (currentAction == actionBuffer) {
+        actionBuffer[2] = actionStr[0];
+        actionBuffer[3] = actionStr[1];
+    } else {
+        actionBuffer[0] = actionStr[0];
+        actionBuffer[1] = actionStr[1];
+    }
 }
 
 void Tank::_setActionToUndefined()
 {
     this->action = UNDEFINED;
+}
+
+void Tank::setSocket(const sockaddr *addr, socklen_t addrlen)
+{
+    if ((sd_client = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        syslog(LOG_ERR, "socket() failed: %s", strerror(errno));
+        throw std::runtime_error("socket() failed while assigning client to tank");
+    }
+    if (connect(sd_client, addr, addrlen) == -1) {
+        syslog(LOG_ERR, "connect() failed: %s", strerror(errno));
+        throw std::runtime_error("connect() failed while assigning client to tank");
+    }
 }

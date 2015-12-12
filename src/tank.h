@@ -1,17 +1,20 @@
 #ifndef INTERNET_OF_TANKS_TANK_H
 #define INTERNET_OF_TANKS_TANK_H
 
+#include <netdb.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <syslog.h>
+#include <unistd.h>
+
 #include <atomic>
 #include <cerrno>
-#include <cstring>
-#include <pthread.h>
-#include <sys/types.h>
-#include <signal.h>
-#include <syslog.h>
-#include <utility>
-#include <semaphore.h>
-#include <thread>
 #include <condition_variable>
+#include <cstring>
+#include <thread>
+#include <utility>
 #include <vector>
 
 enum Team
@@ -23,7 +26,8 @@ enum Action
 {
     UNDEFINED,
     MOVE_UP, MOVE_DOWN, MOVE_RIGHT, MOVE_LEFT,
-    FIRE_UP, FIRE_DOWN, FIRE_RIGHT, FIRE_LEFT
+    FIRE_UP, FIRE_DOWN, FIRE_RIGHT, FIRE_LEFT,
+    NO_ACTION
 };
 
 
@@ -35,6 +39,7 @@ public:
 
     virtual ~Tank()
     {
+        close(sd_client);
         sem_destroy(&readySem);
         thread->join();
         delete thread;
@@ -62,6 +67,10 @@ public:
 
     void _setActionToUndefined();
 
+    void setNextAction(const char* actionStr);
+
+    void setSocket(const struct sockaddr* addr, socklen_t addrlen);
+
     /**
      * Contact all tanks and ask then about the action.
      */
@@ -77,12 +86,17 @@ private:
     Team team;
     sem_t readySem;
     Action action;
+    char actionBuffer[4];
+    char* currentAction;
+
+    int sd_client;      //<< socket descriptor to tankclient
 
     std::thread *thread;
     std::atomic_bool destroyed;
 
     void threadFnc();
     void doAction();
+    Action parseAction(const char* actionStr);
 };
 
 

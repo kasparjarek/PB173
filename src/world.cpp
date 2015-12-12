@@ -8,11 +8,13 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <syslog.h>
+
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <system_error>
 
@@ -62,6 +64,7 @@ void World::performRound()
     syslog(LOG_INFO, "round %d starting", roundCount);
     roundCount++;
     syslog(LOG_INFO, "round num %d started", roundCount);
+    receiveMessages();
     performActions();
     printGameBoard();
     sleep(roundTime);
@@ -110,6 +113,7 @@ Tank *World::createTank(Team team)
     // Find random X
     while (! (row.insert(pair<int, Tank *>(abs(rand() % areaX), newTank))).second) { }
 
+    freeTanks.push_back(newTank);
     return newTank;
 }
 
@@ -159,6 +163,33 @@ void World::setListenSocket()
     }
 
     freeaddrinfo(server_info);
+}
+
+void World::receiveMessages()
+{
+    struct sockaddr_storage from;
+    char buf[2];
+    socklen_t fromlen = sizeof from;
+    while ((recvfrom(sd_listen, buf, 2, MSG_DONTWAIT, (struct sockaddr*)&from, &fromlen)) != -1) {
+        struct sockaddr_in addr = *(struct sockaddr_in*)&from;
+        Tank* tank = addrToTank[addr];
+
+        if (tank == nullptr) {
+            /* assign random tank */
+            int tankIndex = rand() % freeTanks.size();
+            tank = freeTanks[tankIndex];
+            freeTanks.erase(freeTanks.begin() + tankIndex);
+
+            tank->setSocket((struct sockaddr*)&from, fromlen);
+            addrToTank[addr] = tank;
+        }
+
+        tank->setNextAction(buf);
+    }
+    if (errno != EWOULDBLOCK && errno != EAGAIN) {
+        syslog(LOG_ERR, "recvfrom() failed: %s", strerror(errno));
+        throw runtime_error("recvfrom() failed");
+    }
 }
 
 int World::printGameBoard()

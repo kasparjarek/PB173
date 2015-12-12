@@ -1,12 +1,26 @@
 #ifndef INTERNET_OF_TANKS_WORLD_H
 #define INTERNET_OF_TANKS_WORLD_H
 
-#include <set>
-#include <unistd.h>
-#include <string>
-#include <map>
-#include <fstream>
 #include "tank.h"
+
+#include <fstream>
+#include <map>
+#include <set>
+#include <string>
+#include <unistd.h>
+#include <vector>
+
+class SockAddrComparator
+{
+public:
+    bool operator() (const struct sockaddr_in & a, const struct sockaddr_in & b) const
+    {
+        if (a.sin_addr.s_addr == b.sin_addr.s_addr) {
+            return a.sin_port < b.sin_port;
+        }
+        return a.sin_addr.s_addr < b.sin_addr.s_addr;
+    }
+};
 
 class World
 {
@@ -51,6 +65,10 @@ private:
 
     std::map<int, std::map<int, Tank*> > tanks;   // row, column
 
+    std::map<struct sockaddr_in, Tank*, SockAddrComparator> addrToTank;
+
+    std::vector<Tank*> freeTanks;
+
 
     /**
      * Create tank - generate random position for tank, create new thread
@@ -71,6 +89,8 @@ private:
      * @throw runtime_error if setting the socket fails
      */
     void setListenSocket();
+
+    void receiveMessages();
 
     /**
      * Iterate through all tanks ale perform theirs actions
