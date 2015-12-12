@@ -175,17 +175,29 @@ void World::receiveMessages()
         Tank* tank = addrToTank[addr];
 
         if (tank == nullptr) {
+
             /* assign random tank */
-            int tankIndex = rand() % freeTanks.size();
-            tank = freeTanks[tankIndex];
-            freeTanks.erase(freeTanks.begin() + tankIndex);
+            while (freeTanks.size() > 0) {
+                int tankIndex = rand() % freeTanks.size();
+                tank = freeTanks[tankIndex];
+                freeTanks.erase(freeTanks.begin() + tankIndex);
+
+                if (tank != nullptr)
+                    break;
+            }
+
+            if (tank == nullptr) {
+                syslog(LOG_INFO, "no more tanks for clients");
+                continue;
+            }
 
             tank->setSocket((struct sockaddr*)&from, fromlen);
-            addrToTank[addr] = tank;
+            addrToTank[addr] =tank;
         }
 
         tank->setNextAction(buf);
     }
+
     if (errno != EWOULDBLOCK && errno != EAGAIN) {
         syslog(LOG_ERR, "recvfrom() failed: %s", strerror(errno));
         throw runtime_error("recvfrom() failed");
