@@ -69,6 +69,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    /* sendto sockfd */
+
     freeaddrinfo(servinfo);
     exit(0);
 }

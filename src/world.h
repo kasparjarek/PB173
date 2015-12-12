@@ -20,6 +20,7 @@ public:
 
     virtual ~World()
     {
+        close(sd_listen);
         clearTanks();
     }
 
@@ -42,9 +43,11 @@ private:
     int areaY;
     int redCount;
     int greenCount;
-    std::ofstream namedPipe;
+    std::ofstream namedPipe;    //<< pipe to worldclient
     useconds_t roundTime;
     unsigned int roundCount;
+
+    int sd_listen;             //<< listening socket descriptor
 
     std::map<int, std::map<int, Tank*> > tanks;   // row, column
 
@@ -62,6 +65,12 @@ private:
      * @throw runtime_error if creating tank fail
      */
     void createTanks(Team team, int count);
+
+    /**
+     * Prepare for listening to connection from tankclients
+     * @throw runtime_error if setting the socket fails
+     */
+    void setListenSocket();
 
     /**
      * Iterate through all tanks ale perform theirs actions

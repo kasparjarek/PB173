@@ -1,18 +1,25 @@
+#include "world.h"
+#include "tank.h"
+
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <syslog.h>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <stdexcept>
-#include <sys/wait.h>
-#include <syslog.h>
-#include <sys/errno.h>
-#include <system_error>
 #include <iostream>
-#include "world.h"
-#include "tank.h"
+#include <stdexcept>
+#include <system_error>
 
 using std::runtime_error;
 using std::pair;
+
+const char* IOT_PORT = "1337";
 
 World::World(int areaX,
              int areaY,
@@ -43,6 +50,9 @@ void World::init()
     catch (runtime_error error) {
         throw runtime_error(std::string("World initialization failed: ") + error.what());
     }
+
+    setListenSocket();
+
     printGameBoard();
     sleep(roundTime);
 }
@@ -108,6 +118,47 @@ void World::createTanks(Team team, int count)
     for (int i = 0; i < count; ++i) {
         createTank(team);
     }
+}
+
+void World::setListenSocket()
+{
+    struct addrinfo hints;
+    struct addrinfo* server_info;
+    struct addrinfo* p;
+    int status;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    if ((status = getaddrinfo(NULL, IOT_PORT, &hints, &server_info)) != 0) {
+        syslog(LOG_ERR, "getaddrinfo() failed: %s", gai_strerror(status));
+        exit(1);
+    }
+
+    for (p = server_info; p != NULL; p = p->ai_next) {
+        if ((sd_listen = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol)) == -1) {
+            syslog(LOG_INFO, "socket() failed: %s", strerror(errno));
+            continue;
+        }
+
+        if (bind(sd_listen, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sd_listen);
+            syslog(LOG_INFO, "bind() failed: %s", strerror(errno));
+            continue;
+        }
+
+        break;
+    }
+
+    if (p == NULL) {
+        syslog(LOG_ERR, "failed to bind socket");
+        freeaddrinfo(server_info);
+        throw runtime_error("failed to bind socket");
+    }
+
+    freeaddrinfo(server_info);
 }
 
 int World::printGameBoard()
