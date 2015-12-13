@@ -18,6 +18,7 @@ std::mutex Tank::actionMtx;
 Tank::Tank(const Team &team)
     : team(team), action(UNDEFINED), destroyed(false)
 {
+    currentAction = actionBuffer;
     if (sem_init(&readySem, 0, 0) == -1) {
         syslog(LOG_ERR, "sem_init() failed: %s", strerror(errno));
         throw std::runtime_error("Creating semaphore failed");

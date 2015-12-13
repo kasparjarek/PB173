@@ -185,11 +185,14 @@ void World::receiveMessages()
         if (tank == nullptr) {
 
             /* assign tank */
-            if (freeTanks.size() > 0) {
+            while (freeTanks.size() > 0) {
                 tank = freeTanks.back();
                 freeTanks.pop_back();
+                if (!tank->isDestroyed())
+                    break;
+            }
 
-            } else {
+            if (tank == nullptr || tank->isDestroyed()) {
                 syslog(LOG_INFO, "no more tanks for clients");
                 continue;
             }
