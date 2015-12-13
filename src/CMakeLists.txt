@@ -6,3 +6,4 @@ add_executable(tankclient tankclient.cpp)
 add_executable(worldclient worldclient.cpp)
 
 target_link_libraries(worldclient ${CURSES_LIBRARIES})
+target_link_libraries(tankclient ${CURSES_LIBRARIES})
