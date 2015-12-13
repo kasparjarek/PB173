@@ -1,10 +1,13 @@
-#include <iostream>
 #include <getopt.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <syslog.h>
 #include <ncurses.h>
+#include <netdb.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <syslog.h>
+#include <unistd.h>
+
+#include <iostream>
 
 using std::cout;
 using std::endl;

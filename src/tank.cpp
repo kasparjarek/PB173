@@ -93,6 +93,11 @@ int Tank::waitForTank()
     return 0;
 }
 
+void Tank::joinThread()
+{
+    thread->join();
+}
+
 void Tank::doAction()
 {
     this->action = parseAction(currentAction);

@@ -63,7 +63,9 @@ private:
 
     int sd_listen;             //<< listening socket descriptor
 
-    std::map<int, std::map<int, Tank*> > tanks;   // row, column
+    std::vector<Tank*> tanks;
+
+    std::map<int, std::map<int, Tank*> > mapToTank;   // row, column
 
     std::map<struct sockaddr_in, Tank*, SockAddrComparator> addrToTank;
 
