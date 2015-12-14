@@ -199,12 +199,19 @@ void World::receiveMessages()
 
             tank->setSocket((struct sockaddr*)&from, fromlen);
             addrToTank[addr] = tank;
+            tank->setNextAction(buf);
+            if (sendto(sd_listen, buf, 2, 0, (struct sockaddr*)&from, fromlen) == -1) {
+                syslog(LOG_ERR, "sendto() failed: %s", strerror(errno));
+            }
 
         } else if (tank->isDestroyed()) {
             continue;
 
         } else {
             tank->setNextAction(buf);
+            if (sendto(sd_listen, buf, 2, 0, (struct sockaddr*)&from, fromlen) == -1) {
+                syslog(LOG_ERR, "sendto() failed: %s", strerror(errno));
+            }
         }
     }
 

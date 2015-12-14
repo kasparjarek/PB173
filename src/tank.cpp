@@ -16,7 +16,7 @@ std::condition_variable Tank::actionCV;
 std::mutex Tank::actionMtx;
 
 Tank::Tank(const Team &team)
-    : team(team), action(UNDEFINED), destroyed(false)
+    : team(team), action(UNDEFINED), sd_client(0), destroyed(false)
 {
     currentAction = actionBuffer;
     if (sem_init(&readySem, 0, 0) == -1) {
@@ -102,13 +102,15 @@ void Tank::joinThread()
 void Tank::doAction()
 {
     this->action = parseAction(currentAction);
-    send(sd_client, currentAction, 2, 0);
+    if (sd_client != 0 && send(sd_client, currentAction, 2, 0) == -1) {
+        syslog(LOG_ERR, "send() failed: %s", strerror(errno));
+    }
     currentAction[0] = 'n';
     currentAction[1] = 'o';
     if (currentAction == actionBuffer)
         currentAction += 2;
     else
-        currentAction -=2;
+        currentAction -= 2;
 }
 
 Action Tank::parseAction(const char *actionStr)
