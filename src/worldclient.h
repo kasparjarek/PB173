@@ -9,7 +9,7 @@
 #include <iosfwd>
 #include <fstream>
 
-#define WORLD_PATH "/var/run/world.pid"
+#define WORLD_PATH "world.pid"
 
 class WorldClient {
 private:

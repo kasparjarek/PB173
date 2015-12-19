@@ -49,12 +49,13 @@ int WorldClient::readGameBoardSize() {
     char buffer[16];
     memset(buffer, 0, 16);
     int counter = 0;
-    while(1){
-        if(read(pipe, &cur, 1) == -1){
+    while (1){
+        if (read(pipe, &cur, 1) == -1) {
             //TODO: co kdyz selze + timeout
         }
-        if(cur == ',')
+        if (cur == ',')
             break;
+
         buffer[counter] = cur;
         counter++;
     }
@@ -63,10 +64,11 @@ int WorldClient::readGameBoardSize() {
 
     memset(buffer, 0, 16);
     counter = 0;
-    while(1){
+    while (1){
         read(pipe, &cur, 1);
-        if(cur == ',')
+        if (cur == ',')
             break;
+
         buffer[counter] = cur;
         counter++;
     }
@@ -98,9 +100,9 @@ int WorldClient::initGameboard()
     wattron(gameboard, COLOR_PAIR(1));
 
     //print game frame
-    for(int curY = 0; curY <= y+1; curY++){
-        for(int curX  = 0; curX <= x+1; curX++){
-            if(curX == 0 || curX == x+1 || curY == 0 || curY == y+1){
+    for (int curY = 0; curY <= y+1; curY++) {
+        for (int curX  = 0; curX <= x+1; curX++) {
+            if (curX == 0 || curX == x+1 || curY == 0 || curY == y+1) {
                 mvwaddch(gameboard, curY, curX, '$');
                 wmove(gameboard, 0,0);
             }
@@ -122,14 +124,14 @@ int WorldClient::signalWorld(int signal)
 {
     pid_t pid = 0;
     ifstream s(WORLD_PATH);
-    if(!s.is_open()){
+    if (!s.is_open()) {
         syslog(LOG_INFO, "couldn't open %s, trying working dir.", WORLD_PATH);
         s.open("world.pid");
     }
     s >> pid;
     syslog(LOG_WARNING, "Pid read from file: %s", std::to_string(pid).c_str());
     syslog(LOG_ERR, "Read world pid as %d", pid);
-    if(pid){
+    if (pid) {
         kill(pid, signal);
         return 0;
     }
@@ -140,10 +142,10 @@ int WorldClient::signalWorld(int signal)
 char WorldClient::readFieldFromPipe()
 {
     char field[2];
-    if(read(pipe, field, 2) == -1){
+    if (read(pipe, field, 2) == -1) {
         syslog(LOG_ERR, "couldn't ->read<- field from pipe");
     }
-    if(field[1] != ','){
+    if (field[1] != ',') {
         syslog(LOG_ERR, "illegal field separator from pipe");
     }
     return field[0];
@@ -156,7 +158,8 @@ int main(int argc, char ** argv)
     char * pipe = nullptr;
     char opt;
     while ((opt = (char) getopt_long(argc, argv, "p:h", LONG_ARGS, NULL)) != -1) {
-        switch (opt) {
+        switch (opt)
+        {
             case 'p': //pipe
                 pipe = optarg;
                 break;
@@ -168,7 +171,7 @@ int main(int argc, char ** argv)
                 exit(1);
         }
     }
-    if(pipe == nullptr){
+    if (pipe == nullptr) {
         std::cout << "Pipe arg required." << std::endl;
         syslog(LOG_ERR, "Argument pipe is required. Exitting");
         return -1;
@@ -183,16 +186,17 @@ int main(int argc, char ** argv)
         int input = 0;
         nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
 
-        while(input != 'q')
+        while (input != 'q')
         {
             char tank;
             int fieldCounter = 0;
             //reload full gameboard from pipe
-            while(fieldCounter < wc.getX()*wc.getY())
+            while (fieldCounter < wc.getX()*wc.getY())
             {
                 tank = wc.readFieldFromPipe();
 
-                switch (tank) {
+                switch (tank)
+                {
                     case '0':
                         mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
                         break;
@@ -213,7 +217,8 @@ int main(int argc, char ** argv)
 
             //check, if there is input waiting
             input = wgetch(wc.getGameboard());
-            switch (input){
+            switch (input)
+            {
                 case 'q':
                     wc.terminate();
                     exit(0);
