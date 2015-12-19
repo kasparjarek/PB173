@@ -28,8 +28,7 @@ void printHelp()
 }
 
 WorldClient::WorldClient(char *path): y(0),
-                                      x(0),
-                                      gameboard(nullptr)
+                                      x(0)
 {
 
     //if pipe doesn't exist, create it
@@ -83,6 +82,12 @@ int WorldClient::initGameboard()
 
     //start ncurses
     initscr();
+
+    if(LINES < y || COLS < x){
+        syslog(LOG_ERR, "insuficient window");
+        exit(1);
+    }
+
     cbreak();
     keypad(stdscr, TRUE);
     start_color();
@@ -94,26 +99,24 @@ int WorldClient::initGameboard()
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_RED, COLOR_BLACK);
 
-    gameboard = newwin(y+10, (x > x+2), 0, 0);
-    wattron(gameboard, COLOR_PAIR(1));
+    attron(COLOR_PAIR(1));
 
     //print game frame
     for(int curY = 0; curY <= y+1; curY++){
         for(int curX  = 0; curX <= x+1; curX++){
             if(curX == 0 || curX == x+1 || curY == 0 || curY == y+1){
-                mvwaddch(gameboard, curY, curX, '$');
-                wmove(gameboard, 0,0);
+                mvaddch(curY, curX, '$');
+                move(0,0);
             }
         }
     }
     return 0;
 }
 
-int WorldClient::terminate()
+void WorldClient::terminate(char * p)
 {
-    close(pipe);
-    wrefresh(gameboard);
-    delwin(gameboard);
+    unlink(p);
+    refresh();
     endwin();
 }
 
@@ -181,9 +184,9 @@ int main(int argc, char ** argv)
         wc.initGameboard();
 
         int input = 0;
-        nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
+        nodelay(stdscr, true); //hopefully, this will make getchars in gameboard non-blocking
 
-        while(input != 'q')
+        while(1)
         {
             char tank;
             int fieldCounter = 0;
@@ -194,15 +197,15 @@ int main(int argc, char ** argv)
 
                 switch (tank) {
                     case '0':
-                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
+                        mvaddch(fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
                         break;
                     case 'g':
-                        wattron(wc.getGameboard(), COLOR_PAIR(2));
-                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
+                        attron(COLOR_PAIR(2));
+                        mvaddch(fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
                         break;
                     case 'r':
-                        wattron(wc.getGameboard(), COLOR_PAIR(3));
-                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
+                        attron(COLOR_PAIR(3));
+                        mvaddch(fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
                         break;
                     default:
                         syslog(LOG_ERR, "illegal field input: %c", tank);
@@ -212,24 +215,24 @@ int main(int argc, char ** argv)
             }
 
             //check, if there is input waiting
-            input = wgetch(wc.getGameboard());
-            switch (input){
-                case 'q':
-                    wc.terminate();
-                    exit(0);
-                case 'x':
-                    wc.signalWorld(SIGINT);
-                    wc.terminate();
-                    break;
-                case 'r':
-                    wc.signalWorld(SIGUSR1);
-                default: //in case of none or unknown input do nothing
-                    break;
+            while (input != ERR) {
+                input = getch();
+                switch (input) {
+                    case 'q':
+                        wc.terminate(pipe);
+                        exit(0);
+                    case 'x':
+                        wc.signalWorld(SIGINT);
+                        wc.terminate(pipe);
+                        break;
+                    case 'r':
+                        wc.signalWorld(SIGUSR1);
+                    default: //in case of none or unknown input do nothing
+                        break;
+                }
             }
             wc.readGameBoardSize();
         }
-        wc.terminate();
-        exit(0);
     }
     catch (std::runtime_error &err){
         syslog(LOG_ERR, "caught exception");

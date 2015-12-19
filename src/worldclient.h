@@ -16,13 +16,8 @@ private:
     int y;
     int x;
     int pipe;
-    WINDOW * gameboard;
 public:
     WorldClient(char *);
-
-    WINDOW *getGameboard() const {
-        return gameboard;
-    }
 
     /**
      * Reads two integers from current position in ifs to x and y
@@ -37,7 +32,7 @@ public:
     /**
      * Close ncurses, exit
      */
-    int terminate();
+    void terminate(char *);
 
 /**
      * Send signal to world process
