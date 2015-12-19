@@ -85,6 +85,7 @@ int WorldClient::initGameboard()
     keypad(stdscr, TRUE);
     start_color();
     noecho();
+    curs_set(0);
 
     //prepare color pairs
     init_pair(1, COLOR_WHITE, COLOR_BLACK);
