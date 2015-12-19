@@ -6,11 +6,11 @@
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
-
 #include <iostream>
 
 using std::cout;
 using std::endl;
+
 
 const char *IOT_PORT = "1337";
 const char *ARGS = "i:h";
@@ -38,7 +38,7 @@ void printHelp()
     cout << "\t\t" << "Use arrows for shooting." << endl << endl;
 }
 
-void sendMsg(char *msg)
+void sendMsg(const char *const msg)
 {
     attron(COLOR_PAIR(1));
 
@@ -55,7 +55,7 @@ void sendMsg(char *msg)
     }
 }
 
-void printSendCmd(char *msg)
+void printSendCmd(const char *const msg)
 {
     if (sendCmdCurrentLine == LINES) {
         clear();
@@ -130,7 +130,7 @@ int readInput()
 
 int main(int argc, char *argv[])
 {
-    char opt = 0;
+    int opt = 0;
     std::string ip_address = "127.0.0.1";
 
     while ((opt = getopt_long(argc, argv, ARGS, LONG_ARGS, NULL)) != -1) {
@@ -182,6 +182,7 @@ int main(int argc, char *argv[])
     }
 
     // Start ncurses
+
     initscr();
     cbreak();
     noecho();
@@ -195,6 +196,7 @@ int main(int argc, char *argv[])
     init_pair(3, COLOR_RED, COLOR_BLACK);
 
     // Listen for input and receive msg from socket
+
     char buff[3];
     buff[2] = 0;
     while (readInput() == 0) {
@@ -211,6 +213,8 @@ int main(int argc, char *argv[])
             printRecvCmd(buff);
         }
     }
+
+    // Clean up
 
     endwin();
     close(sockfd);
