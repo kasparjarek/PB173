@@ -151,7 +151,7 @@ char WorldClient::readFieldFromPipe()
 int main(int argc, char ** argv)
 {
     //handle main arguments
-    char * pipe = NULL;
+    char * pipe = nullptr;
     char opt;
     while ((opt = (char) getopt_long(argc, argv, "p:h", LONG_ARGS, NULL)) != -1) {
         switch (opt) {
@@ -166,56 +166,68 @@ int main(int argc, char ** argv)
                 exit(1);
         }
     }
+    if(pipe == nullptr){
+        std::cout << "Pipe arg required." << std::endl;
+        syslog(LOG_ERR, "Argument pipe is required. Exitting");
+        return -1;
+    }
 
-    WorldClient wc (pipe);
-    wc.initGameboard();
 
-    int input = 0;
-    nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
+    try{
+        WorldClient wc (pipe);
 
-    while(input != 'q')
-    {
-        char tank;
-        int fieldCounter = 0;
-        //reload full gameboard from pipe
-        while(fieldCounter < wc.getX()*wc.getY())
+        wc.initGameboard();
+
+        int input = 0;
+        nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
+
+        while(input != 'q')
         {
-            tank = wc.readFieldFromPipe();
+            char tank;
+            int fieldCounter = 0;
+            //reload full gameboard from pipe
+            while(fieldCounter < wc.getX()*wc.getY())
+            {
+                tank = wc.readFieldFromPipe();
 
-            switch (tank) {
-                case '0':
-                    mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
-                    break;
-                case 'g':
-                    wattron(wc.getGameboard(), COLOR_PAIR(2));
-                    mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
+                switch (tank) {
+                    case '0':
+                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
+                        break;
+                    case 'g':
+                        wattron(wc.getGameboard(), COLOR_PAIR(2));
+                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
+                        break;
+                    case 'r':
+                        wattron(wc.getGameboard(), COLOR_PAIR(3));
+                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
+                        break;
+                    default:
+                        syslog(LOG_ERR, "illegal field input: %c", tank);
+                        break;
+                }
+                fieldCounter++;
+            }
+
+            //check, if there is input waiting
+            input = wgetch(wc.getGameboard());
+            switch (input){
+                case 'q':
+                    wc.terminate();
+                case 'x':
+                    wc.signalWorld(SIGINT);
                     break;
                 case 'r':
-                    wattron(wc.getGameboard(), COLOR_PAIR(3));
-                    mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
-                    break;
-                default:
-                    syslog(LOG_ERR, "illegal field input: %c", tank);
+                    wc.signalWorld(SIGUSR1);
+                default: //in case of none or unknown input do nothing
                     break;
             }
-            fieldCounter++;
+            wc.readGameBoardSize();
         }
-
-        //check, if there is input waiting
-        input = wgetch(wc.getGameboard());
-        switch (input){
-            case 'q':
-                wc.terminate();
-            case 'x':
-                wc.signalWorld(SIGINT);
-                break;
-            case 'r':
-                wc.signalWorld(SIGUSR1);
-            default: //in case of none or unknown input do nothing
-                break;
-        }
-        wc.readGameBoardSize();
+        wc.terminate();
     }
-    wc.terminate();
-    return 0;
+    catch (std::runtime_error &err){
+        syslog(LOG_ERR, "caught exception");
+    }
+    return -1;
 }
