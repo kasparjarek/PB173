@@ -126,6 +126,7 @@ int WorldClient::signalWorld(int signal)
         s.open("world.pid");
     }
     s >> pid;
+    syslog(LOG_WARNING, "Pid read from file: %s", std::to_string(pid).c_str());
     syslog(LOG_ERR, "Read world pid as %d", pid);
     if(pid){
         kill(pid, signal);
