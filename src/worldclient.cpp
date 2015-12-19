@@ -42,9 +42,6 @@ WorldClient::WorldClient(char *path): y(0),
 
     // open pipe to world
     pipe = open(path, O_RDONLY);
-
-    //load size of gameboard
-    readGameBoardSize();
 }
 
 int WorldClient::readGameBoardSize() {
@@ -53,7 +50,9 @@ int WorldClient::readGameBoardSize() {
     memset(buffer, 0, 16);
     int counter = 0;
     while(1){
-        read(pipe, &cur, 1);
+        if(read(pipe, &cur, 1) == -1){
+            //TODO: co kdyz selze + timeout
+        }
         if(cur == ',')
             break;
         buffer[counter] = cur;
@@ -79,6 +78,9 @@ int WorldClient::readGameBoardSize() {
 
 int WorldClient::initGameboard()
 {
+    //load size of gameboard
+    readGameBoardSize();
+
     //start ncurses
     initscr();
     cbreak();
@@ -113,7 +115,6 @@ int WorldClient::terminate()
     wrefresh(gameboard);
     delwin(gameboard);
     endwin();
-    exit(0);
 }
 
 //send signal to world process
@@ -215,8 +216,10 @@ int main(int argc, char ** argv)
             switch (input){
                 case 'q':
                     wc.terminate();
+                    exit(0);
                 case 'x':
                     wc.signalWorld(SIGINT);
+                    wc.terminate();
                     break;
                 case 'r':
                     wc.signalWorld(SIGUSR1);
@@ -226,6 +229,7 @@ int main(int argc, char ** argv)
             wc.readGameBoardSize();
         }
         wc.terminate();
+        exit(0);
     }
     catch (std::runtime_error &err){
         syslog(LOG_ERR, "caught exception");
