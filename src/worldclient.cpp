@@ -144,7 +144,6 @@ int WorldClient::handleInput()
 {
     int input;
     while ((input = getch()) != ERR) {
-        syslog(LOG_ERR, "INSIDE WHILE read %c", input);
         switch (input)
         {
             case 'q':
