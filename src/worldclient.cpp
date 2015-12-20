@@ -124,18 +124,14 @@ int WorldClient::signalWorld(int signal)
 {
     pid_t pid = 0;
     ifstream s(WORLD_PATH);
-    if (!s.is_open()) {
-        syslog(LOG_INFO, "couldn't open %s, trying working dir.", WORLD_PATH);
-        s.open("world.pid");
-    }
     s >> pid;
-    syslog(LOG_WARNING, "Pid read from file: %s", std::to_string(pid).c_str());
-    syslog(LOG_ERR, "Read world pid as %d", pid);
+    
     if (pid) {
+        syslog(LOG_INFO, "Read world pid as %d and send signal %d", pid, signal);
         kill(pid, signal);
         return 0;
     }
-    syslog(LOG_ERR, "couldn't read world pid");
+    syslog(LOG_ERR, "Couldn't read world pid");
     return -1;
 }
 
