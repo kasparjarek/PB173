@@ -101,11 +101,12 @@ int WorldClient::printGameboardFrame()
     //load size of gameboard
     readGameBoardSize();
 
-    // Clear curses screen if gameboard size changed
-    if(oldX != x || oldY != y){
-        clear();
+    // If gameboard size didn't change do nothing
+    if(oldX == x && oldY == y){
+        return -1;
     }
 
+    clear();
     attron(COLOR_PAIR(1));
 
     //print game frame
