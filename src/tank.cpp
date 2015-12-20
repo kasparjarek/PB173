@@ -73,6 +73,10 @@ void Tank::threadFnc()
         actionCV.wait(uniqueLock);
         uniqueLock.unlock();
 
+        if (destroyed) {
+            break;
+        }
+
         doAction();
 
         uniqueLock.lock();
