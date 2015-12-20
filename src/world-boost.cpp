@@ -77,27 +77,15 @@ int setSigHandler()
     sigAction.sa_flags = 0;
     sigAction.sa_handler = sigHandler;
 
-    if (sigaction(SIGQUIT, &sigAction, NULL) != 0) {
-        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
-        return -1;
-    }
-    if (sigaction(SIGINT, &sigAction, NULL) != 0) {
-        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
-        return -1;
-    }
-    if (sigaction(SIGTERM, &sigAction, NULL) != 0) {
-        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
-        return -1;
-    }
-    if (sigaction(SIGUSR1, &sigAction, NULL) != 0) {
-        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
-        return -1;
-    }
-    if (sigaction(SIGPIPE, &sigAction, NULL) != 0) {
-        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
-        return -1;
-    }
+    if (sigaction(SIGQUIT, &sigAction, NULL) != 0 ||
+        sigaction(SIGINT, &sigAction, NULL) != 0 ||
+        sigaction(SIGTERM, &sigAction, NULL) != 0 ||
+        sigaction(SIGUSR1, &sigAction, NULL) != 0 ||
+        sigaction(SIGPIPE, &sigAction, NULL) != 0) {
 
+        syslog(LOG_ERR, "sigaction() failed: %s", strerror(errno));
+        return -1;
+    }
     return 0;
 }
 
@@ -240,6 +228,7 @@ int main(int argc, char *argv[])
     if (setSigHandler() != 0) {
         unlink(worldPidPath);
         unlink(options.pipePath.c_str());
+        return -1;
     }
 
     /* Run game */
