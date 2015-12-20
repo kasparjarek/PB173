@@ -29,7 +29,8 @@ void printHelp()
 
 WorldClient::WorldClient(char *path): y(0),
                                       x(0),
-                                      gameboard(nullptr)
+                                      pipe(0),
+                                      pipeName(path)
 {
 
     //if pipe doesn't exist, create it
@@ -42,6 +43,20 @@ WorldClient::WorldClient(char *path): y(0),
 
     // open pipe to world
     pipe = open(path, O_RDONLY);
+
+    //start ncurses
+    initscr();
+    cbreak();
+    start_color();
+    noecho();
+    curs_set(0);
+    nodelay(stdscr, true);
+
+    //prepare color pairs
+    init_pair(1, COLOR_WHITE, COLOR_BLACK);
+    init_pair(2, COLOR_GREEN, COLOR_BLACK);
+    init_pair(3, COLOR_RED, COLOR_BLACK);
+    attron(COLOR_PAIR(1));
 }
 
 int WorldClient::readGameBoardSize() {
@@ -78,45 +93,22 @@ int WorldClient::readGameBoardSize() {
     return 0;
 }
 
-int WorldClient::initGameboard()
+int WorldClient::printGameboardFrame()
 {
     //load size of gameboard
     readGameBoardSize();
 
-    //start ncurses
-    initscr();
-    cbreak();
-    keypad(stdscr, TRUE);
-    start_color();
-    noecho();
-    curs_set(0);
-
-    //prepare color pairs
-    init_pair(1, COLOR_WHITE, COLOR_BLACK);
-    init_pair(2, COLOR_GREEN, COLOR_BLACK);
-    init_pair(3, COLOR_RED, COLOR_BLACK);
-
-    gameboard = newwin(y+10, (x > x+2), 0, 0);
-    wattron(gameboard, COLOR_PAIR(1));
+    attron(COLOR_PAIR(1));
 
     //print game frame
     for (int curY = 0; curY <= y+1; curY++) {
         for (int curX  = 0; curX <= x+1; curX++) {
             if (curX == 0 || curX == x+1 || curY == 0 || curY == y+1) {
-                mvwaddch(gameboard, curY, curX, '$');
-                wmove(gameboard, 0,0);
+                mvaddch(curY, curX, '$');
             }
         }
     }
     return 0;
-}
-
-int WorldClient::terminate()
-{
-    close(pipe);
-    wrefresh(gameboard);
-    delwin(gameboard);
-    endwin();
 }
 
 //send signal to world process
@@ -148,6 +140,69 @@ char WorldClient::readFieldFromPipe()
 
 }
 
+int WorldClient::handleInput()
+{
+    while (int input = getch() != ERR) {
+        syslog(LOG_ERR, "INSIDE WHILE read %c", input);
+        switch (input)
+        {
+            case 'q':
+                return -1;
+            case 'x':
+                this->signalWorld(SIGINT);
+                break;
+            case 'r':
+                this->signalWorld(SIGUSR1);
+            default: //in case of none or unknown input do nothing
+                break;
+        }
+    }
+    return 0;
+}
+
+int WorldClient::checkIfPipeIsReady()
+{
+    return 0;
+}
+
+int WorldClient::printGameboard()
+{
+    if (checkIfPipeIsReady() != 0) {
+        return -1;
+    }
+
+    // Clear curses screen
+    clear();
+
+    // Print frame
+    printGameboardFrame();
+
+    // Print tanks
+    for (int y = 1; y <= this->y; y++) {
+        for (int x = 1; x <= this->x; x++) {
+            char tank = readFieldFromPipe();
+
+            switch (tank)
+            {
+                case '0':
+                    mvaddch(y, x, ' ');
+                    break;
+                case 'g':
+                    attron(COLOR_PAIR(2));
+                    mvaddch(y, x, 'X');
+                    break;
+                case 'r':
+                    attron(COLOR_PAIR(3));
+                    mvaddch(y, x, 'X');
+                    break;
+                default:
+                    syslog(LOG_ERR, "illegal field input: %c", tank);
+            }
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char ** argv)
 {
     //handle main arguments
@@ -173,67 +228,17 @@ int main(int argc, char ** argv)
         return -1;
     }
 
-
-    try{
+    try {
         WorldClient wc (pipe);
 
-        wc.initGameboard();
-
-        int input = 0;
-        nodelay(wc.getGameboard(), true); //hopefully, this will make getchars in gameboard non-blocking
-
-        while (input != 'q')
-        {
-            char tank;
-            int fieldCounter = 0;
-            //reload full gameboard from pipe
-            while (fieldCounter < wc.getX()*wc.getY())
-            {
-                tank = wc.readFieldFromPipe();
-
-                switch (tank)
-                {
-                    case '0':
-                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, ' ');
-                        break;
-                    case 'g':
-                        wattron(wc.getGameboard(), COLOR_PAIR(2));
-                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
-                        break;
-                    case 'r':
-                        wattron(wc.getGameboard(), COLOR_PAIR(3));
-                        mvwaddch(wc.getGameboard(), fieldCounter / wc.getX()+1, fieldCounter % wc.getX()+1, 'X');
-                        break;
-                    default:
-                        syslog(LOG_ERR, "illegal field input: %c", tank);
-                        break;
-                }
-                fieldCounter++;
-            }
-
-            //check, if there is input waiting
-            input = wgetch(wc.getGameboard());
-            switch (input)
-            {
-                case 'q':
-                    wc.terminate();
-                    exit(0);
-                case 'x':
-                    wc.signalWorld(SIGINT);
-                    wc.terminate();
-                    break;
-                case 'r':
-                    wc.signalWorld(SIGUSR1);
-                default: //in case of none or unknown input do nothing
-                    break;
-            }
-            wc.readGameBoardSize();
+        while (wc.handleInput() != -1) {
+            wc.printGameboard();
         }
-        wc.terminate();
-        exit(0);
+
+    } catch (std::runtime_error &err){
+        syslog(LOG_ERR, "caught exception: %s", err.what());
+        return -1;
     }
-    catch (std::runtime_error &err){
-        syslog(LOG_ERR, "caught exception");
-    }
-    return -1;
+
+    return 0;
 }

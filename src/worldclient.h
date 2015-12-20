@@ -16,13 +16,19 @@ private:
     int y;
     int x;
     int pipe;
-    WINDOW * gameboard;
-public:
-    WorldClient(char *);
+    std::string pipeName;
 
-    WINDOW *getGameboard() const {
-        return gameboard;
-    }
+    /**
+     * Send signal to world process
+     * @param signal number
+     */
+    int signalWorld(int);
+
+    /**
+     * Wait until pipe become ready for reading with timeout
+     * @return 0 if pipe is ready and -1 if timeout expires
+     */
+    int checkIfPipeIsReady();
 
     /**
      * Reads two integers from current position in ifs to x and y
@@ -30,34 +36,38 @@ public:
     int readGameBoardSize();
 
     /**
-     * Init gameboard - starts ncurses, print game frame and statistics
-     */
-    int initGameboard();
-
-    /**
-     * Close ncurses, exit
-     */
-    int terminate();
-
-/**
-     * Send signal to world process
-     * @param signal number
-     */
-    int signalWorld(int);
-
-    /**
      * Reads one field from pipe file stream
      * @return -1 on error, 0
      */
     char readFieldFromPipe();
 
-    int getX() const {
-        return x;
+    /**
+     * Init gameboard - starts ncurses, print game frame and statistics
+     */
+    int printGameboardFrame();
+
+public:
+
+    WorldClient(char *);
+
+    virtual ~WorldClient()
+    {
+        unlink(pipeName.c_str());
+        endwin();
     }
 
-    int getY() const {
-        return y;
-    }
+    /**
+     * Print gameboard from pipe
+     * @return 0 if gameboard was printed and -1 if timeout expires and nothing was printed
+     */
+    int printGameboard();
+
+    /**
+     * Non-blocking read input from user.
+     * @return -1 if user press terminating command and app should exit
+     */
+    int handleInput();
+
 };
 
 
