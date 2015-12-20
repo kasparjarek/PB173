@@ -61,7 +61,6 @@ void World::init()
 
 void World::performRound()
 {
-    syslog(LOG_INFO, "round %d starting", roundCount);
     roundCount++;
     syslog(LOG_INFO, "round num %d started", roundCount);
     receiveMessages();
