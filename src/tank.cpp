@@ -16,7 +16,7 @@ std::condition_variable Tank::actionCV;
 std::mutex Tank::actionMtx;
 
 Tank::Tank(const Team &team)
-    : team(team), action(UNDEFINED), sd_client(0), destroyed(false)
+    : team(team), action(UNDEFINED), actionBuffer{'n','o','n','o'}, sd_client(0), destroyed(false)
 {
     currentAction = actionBuffer;
     if (sem_init(&readySem, 0, 0) == -1) {
