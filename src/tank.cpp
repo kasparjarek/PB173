@@ -78,13 +78,6 @@ void Tank::threadFnc()
         }
 
         doAction();
-
-        uniqueLock.lock();
-        if (sem_post(&readySem) != 0) {
-            syslog(LOG_WARNING, "sem_post() failed: %s", strerror(errno));
-        }
-        actionCV.wait(uniqueLock);
-        uniqueLock.unlock();
     }
 }
 
@@ -96,11 +89,6 @@ int Tank::waitForTank()
         return -1;
     }
     return 0;
-}
-
-void Tank::joinThread()
-{
-    thread->join();
 }
 
 void Tank::doAction()
@@ -130,6 +118,8 @@ Action Tank::parseAction(const char *actionStr)
             return FIRE_LEFT;
         case 'r':
             return FIRE_RIGHT;
+        default:
+            return UNDEFINED;
         }
     case 'm':
         switch (actionStr[1]) {
@@ -141,6 +131,8 @@ Action Tank::parseAction(const char *actionStr)
             return MOVE_LEFT;
         case 'r':
             return MOVE_RIGHT;
+        default:
+            return UNDEFINED;
         }
     case 'n':
         if (actionStr[1] == 'o')

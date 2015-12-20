@@ -39,6 +39,8 @@ World::World(int areaX,
     if (areaX < 0 || areaY < 0 || redCount < 0 || greenCount < 0 || (areaY * areaX < redCount + greenCount)) {
         throw runtime_error("Creating world failed: invalid parameters");
     }
+
+    setListenSocket();
 }
 
 void World::init()
@@ -53,10 +55,9 @@ void World::init()
         throw runtime_error(std::string("World initialization failed: ") + error.what());
     }
 
-    setListenSocket();
-
     printGameBoard();
     usleep(roundTime);
+    waitForAllTanks();
 }
 
 void World::performRound()
@@ -71,10 +72,6 @@ void World::performRound()
 
 void World::clearTanks()
 {
-    waitForAllTanks();
-    Tank::notifyAllTanks();
-    waitForAllTanks();
-
     for (auto row : mapToTank) {
         for (auto tank : row.second) {
             tank.second->markAsDestroyed();
@@ -82,12 +79,6 @@ void World::clearTanks()
     }
 
     Tank::notifyAllTanks();
-
-    for (auto row : mapToTank) {
-        for (auto tank : row.second) {
-            tank.second->joinThread();
-        }
-    }
 
     for (Tank* t : tanks)
         delete t;
@@ -145,7 +136,7 @@ void World::setListenSocket()
 
     if ((status = getaddrinfo(NULL, IOT_PORT, &hints, &server_info)) != 0) {
         syslog(LOG_ERR, "getaddrinfo() failed: %s", gai_strerror(status));
-        exit(1);
+        throw runtime_error("getaddrinfo() failed");
     }
 
     for (p = server_info; p != NULL; p = p->ai_next) {
@@ -250,10 +241,6 @@ int World::printGameBoard()
 
 int World::performActions()
 {
-    std::vector<Tank *> destroyedTanks;
-
-    /* Wait for tanks to be ready for action */
-    waitForAllTanks();
     Tank::notifyAllTanks();
 
     // Handle FIRE action
@@ -325,7 +312,6 @@ int World::performActions()
             Tank *tank = colIter->second;
 
             if (tank->isDestroyed()) {
-                destroyedTanks.push_back(tank);
                 rowIter->second.erase(colIter++);
                 continue;
             }
@@ -336,7 +322,7 @@ int World::performActions()
                     // Am I at the end of map?
                     if (rowIter->first == 0) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
-                        destroyedTanks.push_back(tank->markAsDestroyed());
+                        tank->markAsDestroyed();
                     }
                     else {
                         // No tank above, Move up
@@ -354,9 +340,9 @@ int World::performActions()
                         // Tank crash
                         if (rowIter->first - 1 == closestUpRow->first && closestUp != closestUpRow->second.end()) {
                             logTankCrash(colIter->first, rowIter->first, colIter->first, closestUpRow->first);
-                            destroyedTanks.push_back(closestUp->second->markAsDestroyed());
+                            closestUp->second->markAsDestroyed();
                             closestUpRow->second.erase(closestUp);
-                            destroyedTanks.push_back(tank->markAsDestroyed());
+                            tank->markAsDestroyed();
                         }
                         // Move up
                         else {
@@ -377,7 +363,7 @@ int World::performActions()
                     // Am I at the end of map?
                     if (rowIter->first + 1 >= areaY) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
-                        destroyedTanks.push_back(tank->markAsDestroyed());
+                        tank->markAsDestroyed();
                     }
                     else {
                         auto closestDownRow = rowIter;
@@ -395,9 +381,9 @@ int World::performActions()
                             // Crash
                             if (closestDown != closestDownRow->second.end()) {
                                 logTankCrash(colIter->first, rowIter->first, colIter->first, closestDownRow->first);
-                                destroyedTanks.push_back(closestDown->second->markAsDestroyed());
+                                closestDown->second->markAsDestroyed();
                                 closestDownRow->second.erase(closestDown);
-                                destroyedTanks.push_back(tank->markAsDestroyed());
+                                tank->markAsDestroyed();
                             }
                             // Move down
                             else {
@@ -414,7 +400,7 @@ int World::performActions()
                     // Am I at the end of map?
                     if (colIter->first + 1 >= areaX) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
-                        destroyedTanks.push_back(tank->markAsDestroyed());
+                        tank->markAsDestroyed();
                     }
                     else {
                         auto closestRight = colIter;
@@ -423,9 +409,9 @@ int World::performActions()
                         // Tank crash
                         if (closestRight != rowIter->second.end() && colIter->first + 1 == closestRight->first) {
                             logTankCrash(colIter->first, rowIter->first, closestRight->first, rowIter->first);
-                            destroyedTanks.push_back(closestRight->second->markAsDestroyed());
+                            closestRight->second->markAsDestroyed();
                             rowIter->second.erase(closestRight);
-                            destroyedTanks.push_back(tank->markAsDestroyed());
+                            tank->markAsDestroyed();
                         }
                         // Move Right
                         else {
@@ -442,7 +428,7 @@ int World::performActions()
                     // Am I at the end of map?
                     if (colIter->first == 0) {
                         logTankRolledOffTheMap(colIter->first, rowIter->first);
-                        destroyedTanks.push_back(tank->markAsDestroyed());
+                        tank->markAsDestroyed();
                     }
                     else {
                         auto closestLeft = colIter;
@@ -450,9 +436,9 @@ int World::performActions()
                         // Tank crash
                         if (colIter != rowIter->second.begin() && colIter->first - 1 == (--closestLeft)->first) {
                             logTankCrash(colIter->first, rowIter->first, closestLeft->first, rowIter->first);
-                            destroyedTanks.push_back(closestLeft->second->markAsDestroyed());
+                            closestLeft->second->markAsDestroyed();
                             rowIter->second.erase(closestLeft);
-                            destroyedTanks.push_back(tank->markAsDestroyed());
+                            tank->markAsDestroyed();
                         }
                         // Move Left
                         else {
@@ -473,13 +459,6 @@ int World::performActions()
         }
 
         rowIter++;
-    }
-
-    // delete all destroyed tanks
-    Tank::notifyAllTanks();
-
-    for (Tank *i : destroyedTanks) {
-        i->joinThread();
     }
 
     return 0;

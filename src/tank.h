@@ -78,8 +78,6 @@ public:
 
     int waitForTank();
 
-    void joinThread();
-
 private:
 
     static std::condition_variable actionCV;
