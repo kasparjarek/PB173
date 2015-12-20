@@ -95,8 +95,16 @@ int WorldClient::readGameBoardSize() {
 
 int WorldClient::printGameboardFrame()
 {
+
+    int oldX = x;
+    int oldY = y;
     //load size of gameboard
     readGameBoardSize();
+
+    // Clear curses screen if gameboard size changed
+    if(oldX != x || oldY != y){
+        clear();
+    }
 
     attron(COLOR_PAIR(1));
 
@@ -171,10 +179,7 @@ int WorldClient::printGameboard()
         return -1;
     }
 
-    // Clear curses screen
-    clear();
-
-    // Print frame
+   // Print frame
     printGameboardFrame();
 
     // Print tanks
