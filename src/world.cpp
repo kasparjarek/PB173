@@ -56,7 +56,7 @@ void World::init()
     setListenSocket();
 
     printGameBoard();
-    sleep(roundTime);
+    usleep(roundTime);
 }
 
 void World::performRound()
