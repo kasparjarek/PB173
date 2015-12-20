@@ -42,7 +42,7 @@ void printHelp()
     cout << "\t\t" << "use <path> as a FIFO pipe for worldclient program" << endl;
 
     cout << "\t" << "--round-time <N>" << endl;
-    cout << "\t\t" << "set duration of one round to be <N> seconds" << endl;
+    cout << "\t\t" << "set duration of one round to be <N> microseconds" << endl;
 
     cout << "\t" << "-h, --help" << endl;
     cout << "\t\t" << "shows this help" << endl << endl;

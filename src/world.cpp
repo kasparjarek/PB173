@@ -67,7 +67,7 @@ void World::performRound()
     receiveMessages();
     performActions();
     printGameBoard();
-    sleep(roundTime);
+    usleep(roundTime);
 }
 
 void World::clearTanks()
