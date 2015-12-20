@@ -72,7 +72,8 @@ int WorldClient::readGameBoardSize() {
     int counter = 0;
     while (1){
         if (read(pipe, &cur, 1) == -1) {
-            //TODO: co kdyz selze + timeout
+            syslog(LOG_ERR, "wtf");
+            return -1;
         }
         if (cur == ',')
             break;
@@ -86,7 +87,10 @@ int WorldClient::readGameBoardSize() {
     memset(buffer, 0, 16);
     counter = 0;
     while (1){
-        read(pipe, &cur, 1);
+        if (read(pipe, &cur, 1) == -1) {
+            syslog(LOG_ERR, "wtf");
+            return -1;
+        }
         if (cur == ',')
             break;
 
