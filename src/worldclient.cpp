@@ -142,7 +142,8 @@ char WorldClient::readFieldFromPipe()
 
 int WorldClient::handleInput()
 {
-    while (int input = getch() != ERR) {
+    int input;
+    while ((input = getch()) != ERR) {
         syslog(LOG_ERR, "INSIDE WHILE read %c", input);
         switch (input)
         {
