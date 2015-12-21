@@ -10,6 +10,7 @@
 
 #include <iosfwd>
 #include <fstream>
+#include <unistd.h>
 
 #define WORLD_PATH "world.pid"
 

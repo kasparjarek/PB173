@@ -15,6 +15,10 @@
 #include <stdexcept>
 
 #define _(STRING) gettext(STRING)
+#include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <poll.h>
 
 using namespace std;
 
@@ -47,9 +51,6 @@ WorldClient::WorldClient(char *path): y(0),
         }
     }
 
-    // open pipe to world
-    pipe = open(path, O_RDONLY);
-
     //start ncurses
     initscr();
     cbreak();
@@ -63,6 +64,9 @@ WorldClient::WorldClient(char *path): y(0),
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
     init_pair(3, COLOR_RED, COLOR_BLACK);
     attron(COLOR_PAIR(1));
+
+    // open pipe to world
+    pipe = open(path, O_RDONLY);
 }
 
 int WorldClient::readGameBoardSize() {
@@ -181,6 +185,13 @@ int WorldClient::handleInput()
 
 int WorldClient::checkIfPipeIsReady()
 {
+    struct pollfd pf;
+    pf.fd = pipe;
+    pf.events = POLLIN;
+    int ret_val = poll(&pf, 1, 500);
+    if(ret_val <= 0){
+        return -1;
+    }
     return 0;
 }
 
