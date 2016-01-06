@@ -1,15 +1,20 @@
 #include "worldclient.h"
 
-#include <unistd.h>
-#include <sys/syslog.h>
+#include <fcntl.h>
 #include <getopt.h>
+#include <libintl.h>
+#include <locale.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/inotify.h>
+#include <sys/stat.h>
+#include <sys/syslog.h>
+#include <unistd.h>
+
 #include <iostream>
 #include <stdexcept>
-#include <string.h>
-#include <fcntl.h>
-#include <sys/stat.h>
+
+#define _(STRING) gettext(STRING)
 
 using namespace std;
 
@@ -21,10 +26,11 @@ const struct option LONG_ARGS[] = {
 
 void printHelp()
 {
-    cout << "Usage:" << endl;
+    cout << _("Usage:") << endl;
     cout << "\t" << "-p, --pipe <path>" << endl;
-    cout << "\t" << "path to named pipe of world program" << endl;
+    cout << "\t\t" << _("path to a named pipe of world program") << endl;
     cout << "\t" << "-h, --help" << endl;
+    cout << "\t\t" << _("print this help") << endl;
 }
 
 WorldClient::WorldClient(char *path): y(0),
@@ -126,7 +132,7 @@ int WorldClient::signalWorld(int signal)
     pid_t pid = 0;
     ifstream s(WORLD_PATH);
     s >> pid;
-    
+
     if (pid) {
         syslog(LOG_INFO, "Read world pid as %d and send signal %d", pid, signal);
         kill(pid, signal);
@@ -211,6 +217,10 @@ int WorldClient::printGameboard()
 
 int main(int argc, char ** argv)
 {
+    setlocale(LC_ALL, "");
+    bindtextdomain("worldclient", "../locale");
+    textdomain("worldclient");
+
     //handle main arguments
     char * pipe = nullptr;
     char opt;
@@ -229,7 +239,7 @@ int main(int argc, char ** argv)
         }
     }
     if (pipe == nullptr) {
-        std::cout << "Pipe arg required." << std::endl;
+        std::cout << _("-p option required.") << std::endl;
         syslog(LOG_ERR, "Argument pipe is required. Exitting");
         return -1;
     }

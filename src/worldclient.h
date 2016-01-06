@@ -6,6 +6,8 @@
 #define INTERNET_OF_TANKS_WORLDCLIENT_H
 
 #include <ncurses.h>
+#include <unistd.h>
+
 #include <iosfwd>
 #include <fstream>
 

@@ -1,10 +1,15 @@
-#include <iostream>
+#include "world.h"
+
 #include <fcntl.h>
 #include <getopt.h>
+#include <libintl.h>
+#include <locale.h>
 #include <sys/stat.h>
-#include <fstream>
 
-#include "world.h"
+#include <fstream>
+#include <iostream>
+
+#define _(STRING) gettext(STRING)
 
 using std::cout;
 using std::endl;
@@ -24,28 +29,28 @@ const struct option LONG_ARGS[] = {
 
 void printHelp()
 {
-    cout << "Usage:" << endl;
+    cout << _("Usage:") << endl;
 
     cout << "\t" << "--area-size <N> <M>" << endl;
-    cout << "\t\t" << "game area will have size <N> x <M>" << endl;
+    cout << "\t\t" << _("game area will have size <N> x <M>") << endl;
 
     cout << "\t" << "--green-tanks <N>" << endl;
-    cout << "\t\t" << "creates <N> green tanks" << endl;
+    cout << "\t\t" << _("creates <N> green tanks") << endl;
 
     cout << "\t" << "--red-tanks <N>" << endl;
-    cout << "\t\t" << "creates <N> red tanks" << endl;
+    cout << "\t\t" << _("creates <N> red tanks") << endl;
 
     cout << "\t" << "-d, --daemonize" << endl;
-    cout << "\t\t" << "run world as daemon" << endl;
+    cout << "\t\t" << _("run world as daemon") << endl;
 
     cout << "\t" << "-p, --pipe <path>" << endl;
-    cout << "\t\t" << "use <path> as a FIFO pipe for worldclient program" << endl;
+    cout << "\t\t" << _("use <path> as a FIFO pipe for worldclient program") << endl;
 
     cout << "\t" << "--round-time <N>" << endl;
-    cout << "\t\t" << "set duration of one round to be <N> microseconds" << endl;
+    cout << "\t\t" << _("set duration of one round to be <N> microseconds") << endl;
 
     cout << "\t" << "-h, --help" << endl;
-    cout << "\t\t" << "shows this help" << endl << endl;
+    cout << "\t\t" << _("shows this help") << endl << endl;
 }
 
 /* Signal handling */
@@ -160,7 +165,7 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
     }
 
     if (!area || !gcnt || !rcnt || !rndt || !ppth) {
-        cout << "Some required options were not provided" << endl;
+        cout << _("Some required options were not provided") << endl;
         printHelp();
         exit(1);
     }
@@ -172,11 +177,15 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
 
 int main(int argc, char *argv[])
 {
+    setlocale(LC_ALL, "");
+    bindtextdomain("world", "../locale");
+    textdomain("world");
+
     /* Parse options */
 
     struct worldOptions options;
     if (!parseOptions(argc, argv, options)) {
-        cout << "invalid options provided" << endl;
+        cout << _("invalid options provided") << endl;
         exit(1);
     }
 
@@ -196,7 +205,7 @@ int main(int argc, char *argv[])
     } else {
         if (savedPid != getpid()) {
             syslog(LOG_INFO, "world pid %d is already running", savedPid);
-            fprintf(stderr, "world pid %d is already running\n", savedPid);
+            fprintf(stderr, _("world pid %d is already running\n"), savedPid);
             fclose(worldPid);
             exit(0);
         }

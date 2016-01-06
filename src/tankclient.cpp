@@ -1,4 +1,6 @@
 #include <getopt.h>
+#include <libintl.h>
+#include <locale.h>
 #include <ncurses.h>
 #include <netdb.h>
 #include <string.h>
@@ -8,6 +10,7 @@
 #include <unistd.h>
 #include <iostream>
 
+#define _(STRING) gettext(STRING)
 using std::cout;
 using std::endl;
 
@@ -26,16 +29,17 @@ int sockfd;
 
 void printHelp()
 {
+    cout << _("Usage:") << endl;
     cout << "\t" << "-i, --ip-address <ipaddr>" << endl;
-    cout << "\t\t" << "ip address of the server (default is localhost)" << endl;
+    cout << "\t\t" << _("ip address of the server (default is localhost)") << endl;
 
     cout << "\t" << "-h, --help" << endl;
-    cout << "\t\t" << "shows this help" << endl << endl;
+    cout << "\t\t" << _("shows this help") << endl << endl;
 
-    cout << "\t" << "How to control the tank:" << endl;
-    cout << "\t\t" << "Use 'q' for exit" << endl;
-    cout << "\t\t" << "Use 'w' 'a' 's' 'd' for movement." << endl;
-    cout << "\t\t" << "Use arrows for shooting." << endl << endl;
+    cout << "\t" << _("How to control the tank:") << endl;
+    cout << "\t\t" << _("Use 'q' for exit") << endl;
+    cout << "\t\t" << _("Use 'w' 'a' 's' 'd' for movement.") << endl;
+    cout << "\t\t" << _("Use arrows for shooting.") << endl << endl;
 }
 
 void sendMsg(const char *const msg)
@@ -62,7 +66,7 @@ void printSendCmd(const char *const msg)
         sendCmdCurrentLine = 0;
         recvCmdCurrentLine = 0;
     }
-    mvprintw(sendCmdCurrentLine++, 0, "Sending command: %s", msg);
+    mvprintw(sendCmdCurrentLine++, 0, _("Sending command: %s"), msg);
 }
 
 void printRecvCmd(char *msg) {
@@ -72,7 +76,7 @@ void printRecvCmd(char *msg) {
         sendCmdCurrentLine = 0;
         recvCmdCurrentLine = 0;
     }
-    mvprintw(recvCmdCurrentLine++, COLS / 2, "World received: %s", msg);
+    mvprintw(recvCmdCurrentLine++, COLS / 2, _("World received: %s"), msg);
 }
 
 int readInput()
@@ -87,37 +91,37 @@ int readInput()
         // Send move actions
         case 'w':
             sendMsg("mu");
-            printSendCmd("Move Up");
+            printSendCmd(_("Move Up"));
             break;
         case 's':
             sendMsg("md");
-            printSendCmd("Move Down");
+            printSendCmd(_("Move Down"));
             break;
         case 'a':
             sendMsg("ml");
-            printSendCmd("Move Left");
+            printSendCmd(_("Move Left"));
             break;
         case 'd':
             sendMsg("mr");
-            printSendCmd("Move Right");
+            printSendCmd(_("Move Right"));
             break;
 
         // Send fire actions
         case KEY_LEFT:
             sendMsg("fl");
-            printSendCmd("Fire Left");
+            printSendCmd(_("Fire Left"));
             break;
         case KEY_RIGHT:
             sendMsg("fr");
-            printSendCmd("Fire Right");
+            printSendCmd(_("Fire Right"));
             break;
         case KEY_UP:
             sendMsg("fu");
-            printSendCmd("Fire Up");
+            printSendCmd(_("Fire Up"));
             break;
         case KEY_DOWN:
             sendMsg("fd");
-            printSendCmd("Fire Down");
+            printSendCmd(_("Fire Down"));
             break;
 
         // In case of none or unknown input do nothing
@@ -130,6 +134,10 @@ int readInput()
 
 int main(int argc, char *argv[])
 {
+    setlocale(LC_ALL, "");
+    bindtextdomain("tankclient", "../locale");
+    textdomain("tankclient");
+
     int opt = 0;
     std::string ip_address = "127.0.0.1";
 
