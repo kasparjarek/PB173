@@ -64,7 +64,7 @@ public:
      * Print gameboard from pipe
      * @return 0 if gameboard was printed and -1 if timeout expires and nothing was printed
      */
-    int printGameboard();
+    void printGameboard();
 
     /**
      * Non-blocking read input from user.
@@ -72,10 +72,6 @@ public:
      */
     int handleInput();
 
-    /**
-     *  Make evil spirits go away
-     */
-    void repairPipe();
 };
 
 

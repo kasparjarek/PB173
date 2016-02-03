@@ -61,9 +61,7 @@ WorldClient::WorldClient(char *path): y(0),
     attron(COLOR_PAIR(1));
 
     // open pipe to world
-    syslog(LOG_WARNING, "will open pipe");
     pipe = open(path, O_RDONLY);
-    syslog(LOG_WARNING, "pipe opened");
 }
 
 int WorldClient::readGameBoardSize() {
@@ -88,9 +86,7 @@ int WorldClient::readGameBoardSize() {
         buffer[counter] = cur;
         counter++;
     }
-    syslog(LOG_INFO, "reading x. Read: %s", buffer);
     x = atoi(buffer);
-    syslog(LOG_INFO, "read x from pipe: %d", x);
 
     memset(buffer, 0, 16);
     counter = 0;
@@ -106,10 +102,7 @@ int WorldClient::readGameBoardSize() {
         buffer[counter] = cur;
         counter++;
     }
-    syslog(LOG_INFO, "reading y. Read: %s", buffer);
     y = atoi(buffer);
-    syslog(LOG_INFO, "read y from pipe: %d", y);
-
     return 0;
 }
 
@@ -119,14 +112,10 @@ int WorldClient::printGameboardFrame()
     int oldX = x;
     int oldY = y;
     //load size of gameboard
-    int ret_val = 1;
-    ret_val = readGameBoardSize();
-    if (ret_val == -1)
-        return -1;
-
-    if (ret_val == -2)
-        return -2;
-
+    int ret_val = readGameBoardSize();
+    if (ret_val != 0){
+        return ret_val;
+    }
 
     // If gameboard size didn't change do nothing
     if(oldX == x && oldY == y){
@@ -197,16 +186,13 @@ int WorldClient::handleInput()
     return 0;
 }
 
-int WorldClient::printGameboard()
+void WorldClient::printGameboard()
 {
-//    if (checkIfPipeIsReady() != 0) {
-//        return -1;
-//    }
     syslog(LOG_INFO, "round starts.");
 
     // Print frame
     if(printGameboardFrame() == -2){
-        return -2;
+        return;
     }
 
     // Print tanks
@@ -232,7 +218,6 @@ int WorldClient::printGameboard()
             }
         }
     }
-    return 0;
 }
 
 int main(int argc, char ** argv)
@@ -268,9 +253,7 @@ int main(int argc, char ** argv)
         WorldClient wc (pipe);
 
         while (wc.handleInput() != -1) {
-            if(wc.printGameboard() == -1){
-//                break;
-            }
+            wc.printGameboard();
         }
 
     } catch (std::runtime_error &err){
