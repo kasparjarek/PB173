@@ -55,8 +55,9 @@ public:
 
     virtual ~WorldClient()
     {
-        unlink(pipeName.c_str());
         endwin();
+        close(pipe);
+        unlink(pipeName.c_str());
     }
 
     /**
@@ -71,6 +72,10 @@ public:
      */
     int handleInput();
 
+    /**
+     *  Make evil spirits go away
+     */
+    void repairPipe();
 };
 
 

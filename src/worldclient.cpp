@@ -6,7 +6,6 @@
 #include <locale.h>
 #include <signal.h>
 #include <string.h>
-#include <sys/inotify.h>
 #include <sys/stat.h>
 #include <sys/syslog.h>
 #include <unistd.h>
@@ -15,10 +14,6 @@
 #include <stdexcept>
 
 #define _(STRING) gettext(STRING)
-#include <string.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <poll.h>
 
 using namespace std;
 
@@ -66,7 +61,9 @@ WorldClient::WorldClient(char *path): y(0),
     attron(COLOR_PAIR(1));
 
     // open pipe to world
+    syslog(LOG_WARNING, "will open pipe");
     pipe = open(path, O_RDONLY);
+    syslog(LOG_WARNING, "pipe opened");
 }
 
 int WorldClient::readGameBoardSize() {
@@ -75,16 +72,23 @@ int WorldClient::readGameBoardSize() {
     memset(buffer, 0, 16);
     int counter = 0;
     while (1){
-        if (read(pipe, &cur, 1) == -1) {
-            syslog(LOG_ERR, "wtf");
+        ssize_t ret_val;
+        if ((ret_val = read(pipe, &cur, 1)) == -1) {
+            syslog(LOG_ERR, "read failed: %s", strerror(errno));
             return -1;
         }
-        if (cur == ',')
+        if (ret_val == 0){
+            usleep(500000);
+            return -2;
+        }
+        if (cur == ','){
             break;
+        }
 
         buffer[counter] = cur;
         counter++;
     }
+    syslog(LOG_INFO, "reading x. Read: %s", buffer);
     x = atoi(buffer);
     syslog(LOG_INFO, "read x from pipe: %d", x);
 
@@ -95,12 +99,14 @@ int WorldClient::readGameBoardSize() {
             syslog(LOG_ERR, "wtf");
             return -1;
         }
-        if (cur == ',')
+        if (cur == ','){
             break;
+        }
 
         buffer[counter] = cur;
         counter++;
     }
+    syslog(LOG_INFO, "reading y. Read: %s", buffer);
     y = atoi(buffer);
     syslog(LOG_INFO, "read y from pipe: %d", y);
 
@@ -113,11 +119,18 @@ int WorldClient::printGameboardFrame()
     int oldX = x;
     int oldY = y;
     //load size of gameboard
-    readGameBoardSize();
+    int ret_val = 1;
+    ret_val = readGameBoardSize();
+    if (ret_val == -1)
+        return -1;
+
+    if (ret_val == -2)
+        return -2;
+
 
     // If gameboard size didn't change do nothing
     if(oldX == x && oldY == y){
-        return -1;
+        return 0;
     }
 
     clear();
@@ -170,6 +183,7 @@ int WorldClient::handleInput()
         switch (input)
         {
             case 'q':
+                unlink(pipeName.c_str());
                 return -1;
             case 'x':
                 this->signalWorld(SIGINT);
@@ -183,26 +197,17 @@ int WorldClient::handleInput()
     return 0;
 }
 
-int WorldClient::checkIfPipeIsReady()
-{
-    struct pollfd pf;
-    pf.fd = pipe;
-    pf.events = POLLIN;
-    int ret_val = poll(&pf, 1, 500);
-    if(ret_val <= 0){
-        return -1;
-    }
-    return 0;
-}
-
 int WorldClient::printGameboard()
 {
-    if (checkIfPipeIsReady() != 0) {
-        return -1;
-    }
+//    if (checkIfPipeIsReady() != 0) {
+//        return -1;
+//    }
+    syslog(LOG_INFO, "round starts.");
 
-   // Print frame
-    printGameboardFrame();
+    // Print frame
+    if(printGameboardFrame() == -2){
+        return -2;
+    }
 
     // Print tanks
     for (int y = 1; y <= this->y; y++) {
@@ -263,7 +268,9 @@ int main(int argc, char ** argv)
         WorldClient wc (pipe);
 
         while (wc.handleInput() != -1) {
-            wc.printGameboard();
+            if(wc.printGameboard() == -1){
+//                break;
+            }
         }
 
     } catch (std::runtime_error &err){

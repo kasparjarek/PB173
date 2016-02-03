@@ -213,6 +213,7 @@ void World::receiveMessages()
 
 int World::printGameBoard()
 {
+    syslog(LOG_INFO, "printing roung");
     // TODO: check for errors
     char comma = ',';
     char green = 'g';

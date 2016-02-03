@@ -5,9 +5,11 @@
 #include <libintl.h>
 #include <locale.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 
 #include <fstream>
 #include <iostream>
+#include <sys/inotify.h>
 
 #define _(STRING) gettext(STRING)
 
@@ -108,8 +110,9 @@ struct worldOptions {
 
 bool checkOptions(struct worldOptions & options)
 {
-    // TODO: check if options are valid
-    return true;
+    return !(options.areaX <= 0 || options.areaY <= 0 ||
+            options.redCount < 0 || options.greenCount < 0 ||
+            (options.areaY * options.areaX <= options.redCount + options.greenCount));
 }
 
 bool parseOptions(int argc, char **argv, struct worldOptions & options)
@@ -173,6 +176,15 @@ bool parseOptions(int argc, char **argv, struct worldOptions & options)
     return checkOptions(options);
 }
 
+void closePidFile(const char * path, int fd){
+    flock(fd, LOCK_UN);
+    truncate(path, 0);
+    sleep(1);
+    if(flock(fd, LOCK_EX) != -1){
+        unlink(path);
+    }
+}
+
 /* Main */
 
 int main(int argc, char *argv[])
@@ -192,31 +204,44 @@ int main(int argc, char *argv[])
     /* Check if there is another instance of world running */
 
     const char *worldPidPath = "world.pid";
-    FILE *worldPid;
-    if ((worldPid = fopen(worldPidPath, "a+")) == NULL) {
-        syslog(LOG_ERR, "cannot open %s: %s", worldPidPath, strerror(errno));
-        exit(1);
+    int worldFD = open(worldPidPath, O_WRONLY | O_CREAT, 0777);
+
+    while(flock(worldFD, LOCK_EX) == -1){
+        syslog(LOG_INFO, "world.pid already locked");
+        int inot = inotify_init();
+        if(inot == -1){
+            cout << "failed inotify_init" << endl;
+            syslog(LOG_ERR, "failed inotify_init");
+            close(worldFD);
+            return 1;
+        }
+        int ret_val = inotify_add_watch(inot, worldPidPath, IN_DELETE);
+        if(ret_val == -1){
+            syslog(LOG_ERR, "failed inotify_add_watch");
+            cout << "failed inot_add_watch" << endl;
+            close(inot);
+            close(worldFD);
+            return 1;
+        }
+        select(inot, NULL, NULL, NULL, NULL);
     }
 
-    pid_t savedPid;
-    if (fscanf(worldPid, "%d", &savedPid) == EOF) {
-        fprintf(worldPid, "%d", getpid());
-        fclose(worldPid);
-    } else {
-        if (savedPid != getpid()) {
-            syslog(LOG_INFO, "world pid %d is already running", savedPid);
-            fprintf(stderr, _("world pid %d is already running\n"), savedPid);
-            fclose(worldPid);
-            exit(0);
-        }
+    syslog(LOG_INFO, "world.pid is mine now");
+    cout << "lock acquired" << endl;
+
+    std::string pid = std::to_string(getpid());
+    if(write(worldFD, pid.c_str(), pid.size()) == -1){
+        cout << "couldn't write pid" << endl;
+        syslog(LOG_ERR, "couldn't write pid");
     }
+
 
     /* Daemonize */
 
     if (options.daemonize) {
         if (daemon(1, 0) != 0) {
             syslog(LOG_ERR, "daemon() failed: %s", strerror(errno));
-            unlink(worldPidPath);
+            closePidFile(worldPidPath, worldFD);
             exit(1);
         }
         openlog(NULL, 0, LOG_DAEMON);
@@ -227,7 +252,7 @@ int main(int argc, char *argv[])
     if (access(options.pipePath.c_str(), F_OK) != 0) {
         if (mkfifo(options.pipePath.c_str(), S_IRUSR | S_IWUSR) != 0) {
             syslog(LOG_ERR, "mkfifo() with name %s failed: %s",options.pipePath.c_str(), strerror(errno));
-            unlink(worldPidPath);
+            closePidFile(worldPidPath, worldFD);
             return 1;
         }
     }
@@ -235,8 +260,7 @@ int main(int argc, char *argv[])
     /* Set signal actions */
 
     if (setSigHandler() != 0) {
-        unlink(worldPidPath);
-        unlink(options.pipePath.c_str());
+        closePidFile(worldPidPath, worldFD);
         return -1;
     }
 
@@ -259,15 +283,11 @@ int main(int argc, char *argv[])
     } catch(std::runtime_error error) {
         syslog(LOG_ERR, "World threw expection: %s", error.what());
 
-        unlink(options.pipePath.c_str());
-        unlink(worldPidPath);
+        closePidFile(worldPidPath, worldFD);
         return -1;
     }
 
-
-    unlink(options.pipePath.c_str());
-    unlink(worldPidPath);
-
+    closePidFile(worldPidPath, worldFD);
     return 0;
 }
 
